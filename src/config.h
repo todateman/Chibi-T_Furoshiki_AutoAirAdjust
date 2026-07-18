@@ -11,10 +11,16 @@
 // Ver1.00のKiCad回路図上ではソレノイド駆動信号 SOL_TRG は M-BUS 25番ピン
 // (ネットラベル "GPIO34") に配線されているが、ESP32のGPIO34は
 // ハードウェア的に入力専用ピンであり digitalWrite() で駆動できない。
-// そのためVer1.01 ではGPIO19に変更した。
-// 旧回路図のまま配線してしまった場合は、ジャンパ線でGPIO19に接続し直す必要がある。
+// そのためVer1.01 では M5Core2 のGPIO19（M5Stack Basic では GPIO13）に変更した。
+// 旧回路図のまま配線してしまった場合は、ジャンパ線でGPIO19/13に接続し直す必要がある。
 
-constexpr uint8_t SOLENOID_PIN = 19; // GPIO19 (J4-2) ソレノイド駆動信号
+#if defined(ARDUINO_M5STACK_Core2)
+constexpr uint8_t SOLENOID_PIN = 19; // M5Core2 GPIO19 (J4-2) ソレノイド駆動信号
+#elif defined(ARDUINO_M5Stack_Core)
+constexpr uint8_t SOLENOID_PIN = 13; // M5Stack Basic GPIO13 (J4-2) ソレノイド駆動信号
+#else
+#error "Unsupported board: SOLENOID_PIN is not defined for this target"
+#endif
 
 // ============================================================
 // I2C アドレス

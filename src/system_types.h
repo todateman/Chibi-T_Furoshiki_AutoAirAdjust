@@ -46,6 +46,7 @@ struct ControllerStatus {
   FaultReason faultReason = FaultReason::None;
 };
 
+// システム状態の文字列ラベルを返す
 inline const char* faultReasonLabel(FaultReason reason) {
   switch (reason) {
     case FaultReason::None: return "";
@@ -57,6 +58,7 @@ inline const char* faultReasonLabel(FaultReason reason) {
   return "";
 }
 
+// システム状態の文字列ラベルを返す
 inline const char* systemStateLabel(SystemState state) {
   switch (state) {
     case SystemState::Init: return "INIT";

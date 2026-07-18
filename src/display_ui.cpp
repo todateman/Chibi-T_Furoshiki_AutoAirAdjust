@@ -15,6 +15,7 @@ void DisplayUI::begin() {
   M5.Display.fillScreen(TFT_BLACK);
 }
 
+// システム状態の文字列ラベルを返す
 void DisplayUI::drawBanner(SystemState state, FaultReason reason) {
   uint16_t bg;
   switch (state) {
@@ -34,6 +35,7 @@ void DisplayUI::drawBanner(SystemState state, FaultReason reason) {
   }
 }
 
+// センサ値の表示
 void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valveEnergized) {
   valuesSprite_.fillSprite(TFT_BLACK);
 
@@ -104,6 +106,7 @@ void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valv
   }
 }
 
+// 警告表示
 void DisplayUI::drawWarning(SystemState state, FaultReason reason) {
   if (state == SystemState::Fault) {
     warningSprite_.fillSprite(TFT_RED);
@@ -116,6 +119,7 @@ void DisplayUI::drawWarning(SystemState state, FaultReason reason) {
   }
 }
 
+// 画面更新
 void DisplayUI::update(const SensorReadings& r, const ControllerStatus& status, bool valveEnergized) {
   drawBanner(status.state, status.faultReason);
   drawValues(r, status.state, valveEnergized);

@@ -7,12 +7,14 @@ void ValveDriver::begin() {
   pulsing_ = false;
 }
 
+// パルスを開始する。パルス中は update() を呼んで閉弁処理を行う必要がある。
 void ValveDriver::trigger(uint32_t now) {
   digitalWrite(SOLENOID_PIN, HIGH);
   pulsing_ = true;
   pulseStartMs_ = now;
 }
 
+// パルス中かどうかを返す。パルス中であれば、update() を呼んで閉弁処理を行う必要がある。
 void ValveDriver::update(uint32_t now) {
   if (pulsing_ && (now - pulseStartMs_ >= PULSE_WIDTH_MS)) {
     digitalWrite(SOLENOID_PIN, LOW);
@@ -20,6 +22,7 @@ void ValveDriver::update(uint32_t now) {
   }
 }
 
+// 強制的に閉弁する。パルス中でも即座に閉弁する。
 void ValveDriver::forceClose() {
   digitalWrite(SOLENOID_PIN, LOW);
   pulsing_ = false;
