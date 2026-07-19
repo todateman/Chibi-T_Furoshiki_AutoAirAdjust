@@ -2,42 +2,55 @@
 #include "config.h"
 
 namespace {
-constexpr int kBannerH = 30;
-constexpr int kValuesH = 160;
+constexpr int kValuesH = 195;
 constexpr int kWarningH = 45;
+
+// P1/P2ゲージの表示レンジ(センサのフルスケール0.7MPaに余裕を持たせた範囲)
+constexpr float PRESSURE_GAUGE_MIN_MPA = 0.0f;
+constexpr float PRESSURE_GAUGE_MAX_MPA = 0.8f;
 }  // namespace
 
 void DisplayUI::begin() {
-  bannerSprite_.createSprite(320, kBannerH);
+  // M5Canvasはデフォルトで内部DRAMからバッファを確保するため(PSRAM未使用)、
+  // 320x195px(16bit)だと空きDRAMを圧迫し確保に失敗する場合がある。
+  // 8bit色深度にしてバッファサイズを半減させ、確保失敗(→描画されず画面が真っ黒になる)を防ぐ。
+  valuesSprite_.setColorDepth(8);
   valuesSprite_.createSprite(320, kValuesH);
+  warningSprite_.setColorDepth(8);
   warningSprite_.createSprite(320, kWarningH);
 
   M5.Display.fillScreen(TFT_BLACK);
 }
 
-// システム状態の文字列ラベルを返す
-void DisplayUI::drawBanner(const SensorReadings& r, SystemState state, FaultReason reason) {
-  uint16_t bg;
-  switch (state) {
-    case SystemState::Fault: bg = TFT_RED; break;
-    case SystemState::PulseOpen: bg = TFT_CYAN; break;
-    case SystemState::Init: bg = TFT_DARKGREY; break;
-    default: bg = TFT_GREEN; break;  // Normal, Cooldown
-  }
-  bannerSprite_.fillSprite(bg);
-  bannerSprite_.setTextSize(2);
-  bannerSprite_.setTextColor(TFT_BLACK, bg);
-  bannerSprite_.setCursor(8, 6);
-  if (state == SystemState::Fault) {
-    if (reason == FaultReason::SensorError) {
-      char detail[16];
-      formatSensorErrorDetail(r, detail, sizeof(detail));
-      bannerSprite_.printf("FAULT: %s (%s)", faultReasonLabel(reason), detail);
-    } else {
-      bannerSprite_.printf("FAULT: %s", faultReasonLabel(reason));
-    }
+// ラベル・大きな数値・ゲージバーを1ブロック分描画する(P1/P2/Fuel共通)
+void DisplayUI::drawGaugeBlock(const char* label, const SensorSample& s, uint16_t color, int y,
+                                float gaugeMin, float gaugeMax, float bandLoMpa, float bandHiMpa,
+                                uint16_t bandColor) {
+  valuesSprite_.setTextSize(3);
+  valuesSprite_.setTextColor(color, TFT_BLACK);
+  valuesSprite_.setCursor(8, y);
+  if (s.valid) {
+    valuesSprite_.printf("%-5s%4.2f", label, s.value);
   } else {
-    bannerSprite_.printf("%s", systemStateLabel(state));
+    valuesSprite_.printf("%-5s----", label);
+  }
+
+  const int gaugeX = 8, gaugeW = 300, gaugeH = 16;
+  const int gaugeY = y + 28;
+  valuesSprite_.drawRect(gaugeX, gaugeY, gaugeW, gaugeH, TFT_WHITE);
+
+  auto toX = [&](float mpa) {
+    float clamped = constrain(mpa, gaugeMin, gaugeMax);
+    return gaugeX + static_cast<int>((clamped - gaugeMin) / (gaugeMax - gaugeMin) * gaugeW);
+  };
+
+  int bandLo = toX(bandLoMpa);
+  int bandHi = toX(bandHiMpa);
+  valuesSprite_.fillRect(bandLo, gaugeY + 1, max(1, bandHi - bandLo), gaugeH - 2, bandColor);
+
+  if (s.valid) {
+    int needleX = toX(s.value);
+    valuesSprite_.fillRect(needleX - 2, gaugeY - 3, 4, gaugeH + 6, color);
   }
 }
 
@@ -45,22 +58,32 @@ void DisplayUI::drawBanner(const SensorReadings& r, SystemState state, FaultReas
 void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valveEnergized) {
   valuesSprite_.fillSprite(TFT_BLACK);
 
-  valuesSprite_.setTextSize(1);
-  valuesSprite_.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-  valuesSprite_.setCursor(8, 4);
-  if (r.primaryMpa.valid) {
-    valuesSprite_.printf("1次側   %5.2f MPa", r.primaryMpa.value);
+  // P1(1次側): 供給圧低下しきい値を下回ったら警告色(CYAN)、無効値ならRED
+  uint16_t p1Color;
+  if (!r.primaryMpa.valid) {
+    p1Color = TFT_RED;
+  } else if (r.primaryMpa.value < PRIMARY_SUPPLY_LOW_TRIP_MPA) {
+    p1Color = TFT_CYAN;
   } else {
-    valuesSprite_.printf("1次側   ---- (センサ異常)");
+    p1Color = TFT_GREEN;
   }
+  drawGaugeBlock("P1", r.primaryMpa, p1Color, 4, PRESSURE_GAUGE_MIN_MPA, PRESSURE_GAUGE_MAX_MPA,
+                 PRESSURE_GAUGE_MIN_MPA, PRIMARY_SUPPLY_LOW_TRIP_MPA,
+                 valuesSprite_.color565(0, 60, 90));
 
-  valuesSprite_.setCursor(8, 22);
-  if (r.secondaryMpa.valid) {
-    valuesSprite_.printf("2次側   %5.2f MPa", r.secondaryMpa.value);
+  // P2(2次側): 過圧しきい値を上回ったら警告色(YELLOW)、無効値ならRED
+  uint16_t p2Color;
+  if (!r.secondaryMpa.valid) {
+    p2Color = TFT_RED;
+  } else if (r.secondaryMpa.value > OVERPRESSURE_TRIP_MPA) {
+    p2Color = TFT_YELLOW;
   } else {
-    valuesSprite_.printf("2次側   ---- (センサ異常)");
+    p2Color = TFT_GREEN;
   }
+  drawGaugeBlock("P2", r.secondaryMpa, p2Color, 54, PRESSURE_GAUGE_MIN_MPA, PRESSURE_GAUGE_MAX_MPA,
+                 OVERPRESSURE_TRIP_MPA, PRESSURE_GAUGE_MAX_MPA, valuesSprite_.color565(90, 70, 0));
 
+  // Fuel(燃圧): 目標帯を下回ればCYAN、上回ればYELLOW、無効値ならRED
   uint16_t fuelColor;
   if (!r.fuelMpa.valid) {
     fuelColor = TFT_RED;
@@ -71,38 +94,11 @@ void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valv
   } else {
     fuelColor = TFT_GREEN;
   }
+  drawGaugeBlock("Fuel", r.fuelMpa, fuelColor, 104, 0.0f, 0.5f, FUEL_LOWER_MPA, FUEL_UPPER_MPA,
+                 valuesSprite_.color565(0, 90, 0));
 
   valuesSprite_.setTextSize(3);
-  valuesSprite_.setTextColor(fuelColor, TFT_BLACK);
-  valuesSprite_.setCursor(8, 44);
-  if (r.fuelMpa.valid) {
-    valuesSprite_.printf("Fuel %4.2f", r.fuelMpa.value);
-  } else {
-    valuesSprite_.printf("Fuel ----");
-  }
-
-  // ゲージバー (0-0.5MPaレンジ、目標帯を濃緑で表示)
-  const int gaugeX = 8, gaugeY = 84, gaugeW = 300, gaugeH = 20;
-  const float gaugeMin = 0.0f, gaugeMax = 0.5f;
-  valuesSprite_.drawRect(gaugeX, gaugeY, gaugeW, gaugeH, TFT_WHITE);
-
-  auto toX = [&](float mpa) {
-    float clamped = constrain(mpa, gaugeMin, gaugeMax);
-    return gaugeX + static_cast<int>((clamped - gaugeMin) / (gaugeMax - gaugeMin) * gaugeW);
-  };
-
-  int bandLo = toX(FUEL_LOWER_MPA);
-  int bandHi = toX(FUEL_UPPER_MPA);
-  valuesSprite_.fillRect(bandLo, gaugeY + 1, max(1, bandHi - bandLo), gaugeH - 2,
-                          valuesSprite_.color565(0, 90, 0));
-
-  if (r.fuelMpa.valid) {
-    int needleX = toX(r.fuelMpa.value);
-    valuesSprite_.fillRect(needleX - 2, gaugeY - 4, 4, gaugeH + 8, fuelColor);
-  }
-
-  valuesSprite_.setTextSize(2);
-  valuesSprite_.setCursor(8, 120);
+  valuesSprite_.setCursor(8, 160);
   if (valveEnergized) {
     valuesSprite_.setTextColor(TFT_CYAN, TFT_BLACK);
     valuesSprite_.print("VALVE: OPEN");
@@ -133,11 +129,9 @@ void DisplayUI::drawWarning(const SensorReadings& r, SystemState state, FaultRea
 
 // 画面更新
 void DisplayUI::update(const SensorReadings& r, const ControllerStatus& status, bool valveEnergized) {
-  drawBanner(r, status.state, status.faultReason);
   drawValues(r, status.state, valveEnergized);
   drawWarning(r, status.state, status.faultReason);
 
-  bannerSprite_.pushSprite(0, 0);
-  valuesSprite_.pushSprite(0, kBannerH + 5);
+  valuesSprite_.pushSprite(0, 0);
   warningSprite_.pushSprite(0, 240 - kWarningH);
 }
