@@ -16,7 +16,7 @@ class DisplayUI {
   M5Canvas valuesSprite_{&M5.Display};
   M5Canvas warningSprite_{&M5.Display};
 
-  void drawBanner(SystemState state, FaultReason reason);
+  void drawBanner(const SensorReadings& r, SystemState state, FaultReason reason);
   void drawValues(const SensorReadings& r, SystemState state, bool valveEnergized);
-  void drawWarning(SystemState state, FaultReason reason);
+  void drawWarning(const SensorReadings& r, SystemState state, FaultReason reason);
 };

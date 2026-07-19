@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <string.h>
 
 enum class SystemState : uint8_t {
   Init,
@@ -34,6 +35,15 @@ struct SensorReadings {
     return primaryMpa.valid && secondaryMpa.valid && fuelMpa.valid;
   }
 };
+
+// SensorReadingsのうち無効なセンサ名をスペース区切りでbufに書き込む(例: "P1 P2")
+inline void formatSensorErrorDetail(const SensorReadings& r, char* buf, size_t bufSize) {
+  if (bufSize == 0) return;
+  buf[0] = '\0';
+  if (!r.primaryMpa.valid) strlcat(buf, buf[0] ? " P1" : "P1", bufSize);
+  if (!r.secondaryMpa.valid) strlcat(buf, buf[0] ? " P2" : "P2", bufSize);
+  if (!r.fuelMpa.valid) strlcat(buf, buf[0] ? " FUEL" : "FUEL", bufSize);
+}
 
 // バルブの現在状態(表示用)
 struct ValveStatus {

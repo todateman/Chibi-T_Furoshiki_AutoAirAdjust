@@ -61,7 +61,13 @@ void loop() {
                      latestReadings.secondaryMpa.value);
       // フォルト状態に入った場合は理由もログ出力
       if (status.state == SystemState::Fault) {
-        Serial.printf("[FAULT] ENTER reason=%s\n", faultReasonLabel(status.faultReason));
+        if (status.faultReason == FaultReason::SensorError) {
+          char detail[16];
+          formatSensorErrorDetail(latestReadings, detail, sizeof(detail));
+          Serial.printf("[FAULT] ENTER reason=%s (%s)\n", faultReasonLabel(status.faultReason), detail);
+        } else {
+          Serial.printf("[FAULT] ENTER reason=%s\n", faultReasonLabel(status.faultReason));
+        }
       }
       lastLoggedState = status.state;
     }

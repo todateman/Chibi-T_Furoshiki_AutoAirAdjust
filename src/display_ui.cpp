@@ -16,7 +16,7 @@ void DisplayUI::begin() {
 }
 
 // システム状態の文字列ラベルを返す
-void DisplayUI::drawBanner(SystemState state, FaultReason reason) {
+void DisplayUI::drawBanner(const SensorReadings& r, SystemState state, FaultReason reason) {
   uint16_t bg;
   switch (state) {
     case SystemState::Fault: bg = TFT_RED; break;
@@ -29,7 +29,13 @@ void DisplayUI::drawBanner(SystemState state, FaultReason reason) {
   bannerSprite_.setTextColor(TFT_BLACK, bg);
   bannerSprite_.setCursor(8, 6);
   if (state == SystemState::Fault) {
-    bannerSprite_.printf("FAULT: %s", faultReasonLabel(reason));
+    if (reason == FaultReason::SensorError) {
+      char detail[16];
+      formatSensorErrorDetail(r, detail, sizeof(detail));
+      bannerSprite_.printf("FAULT: %s (%s)", faultReasonLabel(reason), detail);
+    } else {
+      bannerSprite_.printf("FAULT: %s", faultReasonLabel(reason));
+    }
   } else {
     bannerSprite_.printf("%s", systemStateLabel(state));
   }
@@ -56,7 +62,7 @@ void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valv
   }
 
   uint16_t fuelColor;
-  if (!r.fuelMpa.valid || state == SystemState::Fault) {
+  if (!r.fuelMpa.valid) {
     fuelColor = TFT_RED;
   } else if (r.fuelMpa.value < FUEL_LOWER_MPA) {
     fuelColor = TFT_CYAN;
@@ -107,13 +113,19 @@ void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valv
 }
 
 // 警告表示
-void DisplayUI::drawWarning(SystemState state, FaultReason reason) {
+void DisplayUI::drawWarning(const SensorReadings& r, SystemState state, FaultReason reason) {
   if (state == SystemState::Fault) {
     warningSprite_.fillSprite(TFT_RED);
     warningSprite_.setTextSize(2);
     warningSprite_.setTextColor(TFT_WHITE, TFT_RED);
     warningSprite_.setCursor(8, 12);
-    warningSprite_.printf("WARNING: %s", faultReasonLabel(reason));
+    if (reason == FaultReason::SensorError) {
+      char detail[16];
+      formatSensorErrorDetail(r, detail, sizeof(detail));
+      warningSprite_.printf("WARNING: %s (%s)", faultReasonLabel(reason), detail);
+    } else {
+      warningSprite_.printf("WARNING: %s", faultReasonLabel(reason));
+    }
   } else {
     warningSprite_.fillSprite(TFT_BLACK);
   }
@@ -121,9 +133,9 @@ void DisplayUI::drawWarning(SystemState state, FaultReason reason) {
 
 // 画面更新
 void DisplayUI::update(const SensorReadings& r, const ControllerStatus& status, bool valveEnergized) {
-  drawBanner(status.state, status.faultReason);
+  drawBanner(r, status.state, status.faultReason);
   drawValues(r, status.state, valveEnergized);
-  drawWarning(status.state, status.faultReason);
+  drawWarning(r, status.state, status.faultReason);
 
   bannerSprite_.pushSprite(0, 0);
   valuesSprite_.pushSprite(0, kBannerH + 5);
