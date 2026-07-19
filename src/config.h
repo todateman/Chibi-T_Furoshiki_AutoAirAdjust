@@ -42,29 +42,31 @@ constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS = 100; // 10Hz
 constexpr uint8_t MEAN_SAMPLE_SIZE_MPX5700   = 10;   // DFRobotライブラリ内蔵移動平均サンプル数
 constexpr uint8_t ADS1015_OVERSAMPLE_COUNT   = 4;    // ソフトウェア平均回数
 constexpr adsGain_t FUEL_ADS_GAIN            = GAIN_ONE; // ±4.096V, 12bit
+constexpr int16_t FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS = 20; // 要実機調整: フローティング(センサ未接続)検出用の許容ばらつき(LSB)。暫定値
 
 // 燃圧センサ: 0.5-4.5V ⇔ 0-1.0MPa の線形変換
-constexpr float FUEL_SENSOR_V_AT_0MPA   = 0.5f;
-constexpr float FUEL_SENSOR_V_AT_FULL   = 4.5f;
-constexpr float FUEL_SENSOR_MPA_AT_FULL = 1.0f;
+constexpr float FUEL_SENSOR_V_AT_0MPA   = 0.5f; // 0MPa時の電圧
+constexpr float FUEL_SENSOR_V_AT_FULL   = 4.5f; // 1.0MPa時の電圧
+constexpr float FUEL_SENSOR_MPA_AT_FULL = 1.0f; // 1.0MPa時の圧力
 // 基板上に分圧抵抗が存在する場合のみ1.0未満に変更する(要ハード確認)
+// 恒久的な未接続検出にはAIN0への物理的なプルダウン/プルアップ抵抗追加が望ましい(要基板改版)
 constexpr float FUEL_SENSOR_DIVIDER_RATIO = 1.0f;
 
 // センサ有効レンジ(異常検知用、定格に余裕を持たせた範囲)
-constexpr float SENSOR_RANGE_PRIMARY_KPA_MIN   = 10.0f;
-constexpr float SENSOR_RANGE_PRIMARY_KPA_MAX   = 720.0f;
-constexpr float SENSOR_RANGE_SECONDARY_KPA_MIN = 10.0f;
-constexpr float SENSOR_RANGE_SECONDARY_KPA_MAX = 720.0f;
-constexpr float SENSOR_RANGE_FUEL_MPA_MIN      = -0.02f;
-constexpr float SENSOR_RANGE_FUEL_MPA_MAX      = 1.05f;
+constexpr float SENSOR_RANGE_PRIMARY_KPA_MIN   = 10.0f;     // 1次側センサの有効下限値
+constexpr float SENSOR_RANGE_PRIMARY_KPA_MAX   = 720.0f;    // 1次側センサの有効上限値
+constexpr float SENSOR_RANGE_SECONDARY_KPA_MIN = 10.0f;     // 2次側センサの有効下限値
+constexpr float SENSOR_RANGE_SECONDARY_KPA_MAX = 720.0f;    // 2次側センサの有効上限値
+constexpr float SENSOR_RANGE_FUEL_MPA_MIN      = -0.02f;    // 燃圧センサの有効下限値
+constexpr float SENSOR_RANGE_FUEL_MPA_MAX      = 1.05f;     // 燃圧センサの有効上限値
 
 // ============================================================
 // 制御目標・しきい値 (単位: MPa)
 // ============================================================
-constexpr float FUEL_TARGET_MPA    = 0.35f;
-constexpr float FUEL_TOLERANCE_MPA = 0.01f;
-constexpr float FUEL_LOWER_MPA     = FUEL_TARGET_MPA - FUEL_TOLERANCE_MPA; // 0.34
-constexpr float FUEL_UPPER_MPA     = FUEL_TARGET_MPA + FUEL_TOLERANCE_MPA; // 0.36
+constexpr float FUEL_TARGET_MPA    = 0.35f; // 目標燃圧
+constexpr float FUEL_TOLERANCE_MPA = 0.01f; // 目標燃圧の許容誤差
+constexpr float FUEL_LOWER_MPA     = FUEL_TARGET_MPA - FUEL_TOLERANCE_MPA; // 目標燃圧の下限
+constexpr float FUEL_UPPER_MPA     = FUEL_TARGET_MPA + FUEL_TOLERANCE_MPA; // 目標燃圧の上限
 
 constexpr float PRIMARY_FILL_REFERENCE_MPA = 0.6f; // 参考表示用(充填時想定値)
 
@@ -79,10 +81,10 @@ constexpr uint32_t MAX_REGULATION_EPISODE_MS = 5000; // 連続パルスの上限
 // 安全保護しきい値 (ヒステリシス付き, 単位: MPa)
 // ============================================================
 constexpr float PRIMARY_SUPPLY_LOW_TRIP_MPA  = 0.40f; // これを下回ったら供給不能
-constexpr float PRIMARY_SUPPLY_LOW_CLEAR_MPA = 0.43f;
+constexpr float PRIMARY_SUPPLY_LOW_CLEAR_MPA = 0.43f; // これを上回ったら供給可能
 
 constexpr float OVERPRESSURE_TRIP_MPA  = 0.50f; // 燃圧・2次側の過圧しきい値
-constexpr float OVERPRESSURE_CLEAR_MPA = 0.45f;
+constexpr float OVERPRESSURE_CLEAR_MPA = 0.45f; // これを下回ったら過圧解除
 
 constexpr uint8_t FAULT_TRIP_DEBOUNCE_SAMPLES  = 3;  // 約150ms
 constexpr uint8_t FAULT_CLEAR_DEBOUNCE_SAMPLES = 10; // 約500ms

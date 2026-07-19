@@ -67,16 +67,23 @@ SensorSample PressureSensors::readFuel() {
 
   // ソフトウェア平均を行うため、複数回読み取って平均する
   int32_t sum = 0;
+  int16_t sampleMin = INT16_MAX;
+  int16_t sampleMax = INT16_MIN;
   for (uint8_t i = 0; i < ADS1015_OVERSAMPLE_COUNT; i++) {
-    sum += ads_.readADC_SingleEnded(ADS1015_FUEL_CHANNEL);
+    int16_t raw = ads_.readADC_SingleEnded(ADS1015_FUEL_CHANNEL);
+    sum += raw;
+    sampleMin = min(sampleMin, raw);
+    sampleMax = max(sampleMax, raw);
   }
+  // サンプル間のばらつきが大きい場合、AIN0がフローティング(センサ未接続)と判断し無効として返す
+  if ((sampleMax - sampleMin) > FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS) return s;
   // 平均値を計算し、電圧に変換する
   int16_t rawAvg = static_cast<int16_t>(sum / ADS1015_OVERSAMPLE_COUNT);
   float vAtPin = ads_.computeVolts(rawAvg);
   float vSensor = vAtPin / FUEL_SENSOR_DIVIDER_RATIO;
   float mpa = (vSensor - FUEL_SENSOR_V_AT_0MPA) *
               (FUEL_SENSOR_MPA_AT_FULL / (FUEL_SENSOR_V_AT_FULL - FUEL_SENSOR_V_AT_0MPA));
-  if (!inRange(mpa, SENSOR_RANGE_FUEL_MPA_MIN, SENSOR_RANGE_FUEL_MPA_MAX)) return s;
+  if (!inRange(mpa, SENSOR_RANGE_FUEL_MPA_MIN, SENSOR_RANGE_FUEL_MPA_MAX)) return s;  // 異常値は無効として返す
 
   s.value = mpa;
   s.valid = true;
