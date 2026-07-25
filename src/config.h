@@ -88,3 +88,15 @@ constexpr float OVERPRESSURE_CLEAR_MPA = 0.45f; // これを下回ったら過�
 
 constexpr uint8_t FAULT_TRIP_DEBOUNCE_SAMPLES  = 3;  // 約150ms
 constexpr uint8_t FAULT_CLEAR_DEBOUNCE_SAMPLES = 10; // 約500ms
+
+// ============================================================
+// BLE (Peripheral) 関連
+// ============================================================
+constexpr const char* BLE_DEVICE_NAME = "ChibiT-AutoAirAdjust";
+// Service UUID: 対向機M5NanoC6(BLE Central, M5NanoC6_BLE_Centralリポジトリ)の実装に合わせる(変更不可)
+constexpr const char* BLE_SERVICE_UUID = "7c44181A-c1a4-4635-a119-b490ed272552";
+// 接続維持用ダミーCharacteristic(READ+WRITE)。M5NanoC6側は接続シーケンスでこのCharacteristicの
+// 存在とWrite属性の有無を確認するのみで、実データの送受信には使わない
+constexpr const char* BLE_DUMMY_CHAR_UUID = "c9f878f1-c311-4452-ae5e-e813b4fe057d";
+// センサ値Notify用Characteristic(実データ送信専用)
+constexpr const char* BLE_NOTIFY_CHAR_UUID = "1d25ec49-e19c-4bb6-8c36-5dc8d8aaaebe";

@@ -5,12 +5,14 @@
 #include "pressure_sensors.h"
 #include "controller.h"
 #include "display_ui.h"
+#include "ble_service.h"
 
 namespace {
 
 PressureSensors sensors;
 Controller controller;
 DisplayUI displayUI;
+BleService bleService;
 
 uint32_t lastSensorReadMs = 0;
 uint32_t lastDisplayUpdateMs = 0;
@@ -35,6 +37,7 @@ void setup() {
 
   controller.begin(millis());
   displayUI.begin();
+  bleService.begin();
 
   Serial.println("[BOOT] setup complete");
 }
@@ -84,5 +87,6 @@ void loop() {
   if (now - lastDisplayUpdateMs >= DISPLAY_UPDATE_INTERVAL_MS) {
     lastDisplayUpdateMs = now;
     displayUI.update(latestReadings, controller.status(), controller.valveEnergized());
+    bleService.update(latestReadings);    // デバッグ用のUSB Serial出力も兼ねる
   }
 }

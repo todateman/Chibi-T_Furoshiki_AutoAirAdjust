@@ -12,6 +12,8 @@ M5Stack Core2 用の空気圧自動調整コントローラー ファームウ�
 
 拡張基板のハードウェア仕様（コネクタ・回路構成）は別リポジトリの `Chibi-T_Furoshiki_AutoAirAdjust_PCB` の README を参照してください。
 
+1次側・2次側空気圧・燃圧の値は、BLE Peripheral機能により [M5NanoC6_BLE_Central](https://github.com/todateman/M5NanoC6_BLE_Central)（BLE Central、M5Stack Basicへの中継用ブリッジ）へリアルタイム送信されます。
+
 ## センサ・アクチュエータ構成
 
 | 項目 | デバイス | I2Cアドレス / 接続 | 備考 |
@@ -41,14 +43,35 @@ M5Stack Core2 用の空気圧自動調整コントローラー ファームウ�
 
 ```text
 src/
-├── config.h            # ピン番号・I2Cアドレス・全制御定数
+├── config.h            # ピン番号・I2Cアドレス・全制御定数（BLE UUID含む）
 ├── system_types.h      # 状態機械の型定義（SystemState, FaultReason, SensorReadings等）
 ├── pressure_sensors.h/.cpp  # 3センサの初期化・読み取り・kPa/MPa変換・異常検知
 ├── valve_driver.h/.cpp      # ソレノイドの非ブロッキング固定パルス駆動
 ├── controller.h/.cpp        # 状態機械・安全保護ロジック
 ├── display_ui.h/.cpp        # M5Core2 LCDへのリアルタイム表示
+├── ble_service.h/.cpp       # BLE PeripheralによるセンサデータNotify送信
 └── main.cpp                 # setup()/loop()、各モジュールの統合とシリアルログ出力
 ```
+
+## BLE通信（M5NanoC6への中継）
+
+本体はBLE Peripheral（Server）として動作し、[M5NanoC6_BLE_Central](https://github.com/todateman/M5NanoC6_BLE_Central)（BLE Central）に対して1次側/2次側空気圧・燃圧をNotifyで送信します。  
+M5NanoC6はさらにI2C経由でM5Stack Basicへ中継します。
+
+- デバイス名: `ChibiT-AutoAirAdjust`
+- 送信周期: `DISPLAY_UPDATE_INTERVAL_MS`（100ms）ごと。BLEクライアントが接続している場合のみ送信
+- 送信形式: `PRI:<P1のMPa値>\nSEC:<P2のMPa値>\nFUEL:<燃圧のMPa値>\n` を1回のNotifyでまとめて送信  
+  （例: `PRI:0.85\nSEC:0.72\nFUEL:2.10\n`）
+- センサ異常時（`SensorSample.valid == false`）は、直近の有効値を送り続けます  
+  （安全制御は本体側の `Controller` が独立して担保するため、BLE Notifyは監視データの中継に徹します）
+
+| 用途 | UUID |
+| --- | --- |
+| Service UUID | `7c44181A-c1a4-4635-a119-b490ed272552`（M5NanoC6側の実装に合わせた固定値） |
+| 接続維持用ダミーCharacteristic（Read/Write、実データは扱わない） | `c9f878f1-c311-4452-ae5e-e813b4fe057d` |
+| センサ値Notify用Characteristic | `1d25ec49-e19c-4bb6-8c36-5dc8d8aaaebe` |
+
+UUID・デバイス名・送信周期を変更する場合は [`src/config.h`](src/config.h) の `BLE_*` 定数を編集してください。
 
 ## 使用ライブラリ（`platformio.ini` の `lib_deps`）
 
@@ -73,6 +96,10 @@ pio device monitor -b 115200        # シリアルモニタ
 3. 定常運転中は状態遷移（`[STATE] ...`）、バルブの開閉（`[VALVE] OPEN/CLOSE t=...`）、異常発生・解消（`[FAULT] ...`）がエッジトリガでログ出力されるので、パルス幅・クールダウンが設計値通りに動作しているか確認する。
 4. LCD画面には1次側（P1）・2次側（P2）・燃圧（Fuel）がそれぞれ大きな数値とゲージバーでリアルタイム表示され、下部にバルブ状態、フォルト発生時のみ警告表示（赤背景）が表示される。  
    各ゲージの表示色はそのセンサ自身の有効性・しきい値（P1: `PRIMARY_SUPPLY_LOW_TRIP_MPA`、P2: `OVERPRESSURE_TRIP_MPA`、Fuel: 目標帯）との比較のみで決まり、他センサの異常やFault遷移による影響は受けない。
+5. BLE通信は、起動時にシリアルログで `[BLE] advertising started` を確認。  
+   M5NanoC6等のBLE Centralが接続すると `[BLE] client connected`、切断すると `[BLE] client disconnected, restarting advertising` が出力される。  
+   nRF Connect等のBLEスキャナアプリでも、デバイス名 `ChibiT-AutoAirAdjust` へ接続し、Notify Characteristic（`1d25ec49-...`）を購読することで送信データを直接確認できる。
+6. デバッグ用に、BLE接続の有無によらず `DISPLAY_UPDATE_INTERVAL_MS`（100ms）ごとに `[BLE TX] PRI=... SEC=... FUEL=... (connected=yes/no)` がUSB Serialへ出力される。BLE未接続でも送信予定データと接続状態をシリアルモニタだけで確認できる。
 
 ## ライセンス
 
