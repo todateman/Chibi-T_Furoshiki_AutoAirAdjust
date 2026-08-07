@@ -14,6 +14,16 @@ bool inRange(float v, float lo, float hi) {
 }  // namespace
 
 bool PressureSensors::begin() {
+  // 拡張基板(PCB)側のI2C配線ピンに合わせてWireを明示的に初期化する。
+  // (ボードデフォルトのSDA/SCLに依存すると、M5Core2ではPort A(32/33)、
+  //  M5Stack BasicではPort A(21/22)になり、実際の基板配線と一致しないため)
+  //
+  // M5.begin() は M5.Ex_I2C(Port A) の begin()(ドライバインストール)までは行わないため、
+  // ここで呼ばないと Wire.beginTransmission()/endTransmission() が txBuffer=NULL のまま
+  // 常に失敗し、i2cPing() && sensor.begin() の短絡評価で sensor.begin() 自体が
+  // 一度も呼ばれず、Wire が永久に未初期化になる(=センサが常に未検出になる)。
+  Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+
   primaryOk_ = i2cPing(PRIMARY_SENSOR_I2C_ADDR) && primarySensor_.begin();
   if (primaryOk_) {
     primarySensor_.setMeanSampleSize(MEAN_SAMPLE_SIZE_MPX5700);

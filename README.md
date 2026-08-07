@@ -23,6 +23,13 @@ M5Stack Core2 用の空気圧自動調整コントローラー ファームウ�
 | 燃圧センサ | アナログ 0.5–4.5V / 0–1.0MPa | ADS1015 `0x48` の AIN0 | 制御量（最終判定に使用） |
 | ソレノイドバルブ | DC12V、ノーマリークローズ | `SOLENOID_PIN`<BR>（M5Core2 - GPIO19<BR>M5Stack Basic - GPIO13） | 固定パルス幅ON/OFF制御 |
 
+上記3センサはすべて同一のI2Cバス（`Wire`）上に接続されており、SDA/SCLピンは `src/config.h` の `I2C_SDA_PIN` / `I2C_SCL_PIN` でボードごとに明示的に指定しています（ボードのデフォルトSDA/SCLには依存しません）。
+
+| ボード | SDA | SCL | 備考 |
+| --- | --- | --- | --- |
+| M5Core2 | GPIO32 | GPIO33 | Port A（Grove）<BR>`M5.begin()` が使う内部I2Cバス（GPIO21/22、PMIC/RTC/タッチ/IMU用）とは独立しており競合しない |
+| M5Stack Basic | GPIO2 | GPIO5 | 拡張基板（PCB）のM-BUS配線を本ピンに変更（旧: GPIO21/22＝Port A） |
+
 ## 制御ロジック
 
 状態機械: `Init → Normal ⇄ PulseOpen → Cooldown → Normal`、および異常検知時は任意状態から `Fault` へ即遷移します。

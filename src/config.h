@@ -22,6 +22,18 @@ constexpr uint8_t SOLENOID_PIN = 13; // M5Stack Basic GPIO13 (J4-2) ソレノイ
 #error "Unsupported board: SOLENOID_PIN is not defined for this target"
 #endif
 
+// Wire.begin()の引数なし(ボードのデフォルトSDA/SCL)には依存せず、
+// 拡張基板(PCB)側の実配線に合わせて明示的にピンを指定する。
+#if defined(ARDUINO_M5STACK_Core2)
+constexpr int I2C_SDA_PIN = 32; // M5Core2 Port A(Grove) SDA
+constexpr int I2C_SCL_PIN = 33; // M5Core2 Port A(Grove) SCL
+#elif defined(ARDUINO_M5Stack_Core)
+constexpr int I2C_SDA_PIN = 2;  // M5Stack Basic SDA (PCB改版でM-BUS配線を変更)
+constexpr int I2C_SCL_PIN = 5;  // M5Stack Basic SCL (PCB改版でM-BUS配線を変更)
+#else
+#error "Unsupported board: I2C pins are not defined for this target"
+#endif
+
 // ============================================================
 // I2C アドレス
 // ============================================================
