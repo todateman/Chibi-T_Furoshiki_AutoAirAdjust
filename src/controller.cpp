@@ -40,7 +40,7 @@ void Controller::enterFault(FaultReason reason) {
 }
 
 // 制御ループの更新処理
-void Controller::update(uint32_t now, const SensorReadings& r) {
+void Controller::update(uint32_t now, const SensorReadings& r, float fuelLowerMpa) {
   valve_.update(now); // パルス幅終了判定は毎回(呼び出し周期非依存)
 
   FaultReason detected = evaluateSafety(r);
@@ -85,7 +85,7 @@ void Controller::update(uint32_t now, const SensorReadings& r) {
       break;
     // 正常状態では、燃圧が目標帯下限を下回った場合にソレノイドをパルス駆動する
     case SystemState::Normal:
-      if (r.fuelMpa.value < FUEL_LOWER_MPA) {
+      if (r.fuelMpa.value < fuelLowerMpa) {
         if (pulseEpisodeStartMs_ == 0) pulseEpisodeStartMs_ = now;
         valve_.trigger(now);
         state_ = SystemState::PulseOpen;

@@ -6,6 +6,7 @@
 #include "controller.h"
 #include "display_ui.h"
 #include "ble_service.h"
+#include "fuel_target_store.h"
 
 namespace {
 
@@ -13,6 +14,7 @@ PressureSensors sensors;
 Controller controller;
 DisplayUI displayUI;
 BleService bleService;
+FuelTargetStore fuelTargetStore;
 
 uint32_t lastSensorReadMs = 0;
 uint32_t lastDisplayUpdateMs = 0;
@@ -38,6 +40,8 @@ void setup() {
   controller.begin(millis());
   displayUI.begin();
   bleService.begin();
+  fuelTargetStore.begin();
+  Serial.printf("[BOOT] fuel target = %.2fMPa (loaded from NVS or default)\n", fuelTargetStore.target());
 
   Serial.println("[BOOT] setup complete");
 }
@@ -46,12 +50,28 @@ void loop() {
   M5.update();
   uint32_t now = millis();
 
+  // 目標燃圧ボタン操作(取りこぼし防止のため間引き処理の外、毎ループ判定する)
+  // Aボタン: -0.01MPa, Cボタン: +0.01MPa, Bボタン長押し: NVSへ保存
+  if (M5.BtnA.wasClicked()) {
+    fuelTargetStore.adjust(-FUEL_TARGET_STEP_MPA);
+    Serial.printf("[SETTINGS] fuel target -> %.2fMPa\n", fuelTargetStore.target());
+  }
+  if (M5.BtnC.wasClicked()) {
+    fuelTargetStore.adjust(FUEL_TARGET_STEP_MPA);
+    Serial.printf("[SETTINGS] fuel target -> %.2fMPa\n", fuelTargetStore.target());
+  }
+  if (M5.BtnB.wasHold()) {
+    bool saved = fuelTargetStore.save();
+    Serial.printf("[SETTINGS] fuel target %.2fMPa %s\n", fuelTargetStore.target(),
+                  saved ? "SAVED to NVS" : "(no change to save)");
+  }
+
   // 定期的にセンサーを読み取り、コントローラーを更新する
   if (now - lastSensorReadMs >= SENSOR_READ_INTERVAL_MS) {
     lastSensorReadMs = now;
 
-    latestReadings = sensors.read();            // センサ読み取り
-    controller.update(now, latestReadings);     // コントローラー更新
+    latestReadings = sensors.read();                                  // センサ読み取り
+    controller.update(now, latestReadings, fuelTargetStore.lower());  // コントローラー更新
 
     ControllerStatus status = controller.status();      // コントローラー状態取得
     bool valveEnergized = controller.valveEnergized();  // バルブ通電状態取得
@@ -86,7 +106,8 @@ void loop() {
   // 定期的にディスプレイを更新する
   if (now - lastDisplayUpdateMs >= DISPLAY_UPDATE_INTERVAL_MS) {
     lastDisplayUpdateMs = now;
-    displayUI.update(latestReadings, controller.status(), controller.valveEnergized());
+    displayUI.update(latestReadings, controller.status(), controller.valveEnergized(),
+                      fuelTargetStore.info());
     bleService.update(latestReadings);    // デバッグ用のUSB Serial出力も兼ねる
   }
 }

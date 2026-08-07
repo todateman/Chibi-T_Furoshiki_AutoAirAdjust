@@ -55,7 +55,8 @@ void DisplayUI::drawGaugeBlock(const char* label, const SensorSample& s, uint16_
 }
 
 // センサ値の表示
-void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valveEnergized) {
+void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valveEnergized,
+                            const FuelTargetInfo& fuelTarget) {
   valuesSprite_.fillSprite(TFT_BLACK);
 
   // P1(1次側): 供給圧低下しきい値を下回ったら警告色(CYAN)、無効値ならRED
@@ -84,18 +85,25 @@ void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valv
                  OVERPRESSURE_TRIP_MPA, PRESSURE_GAUGE_MAX_MPA, valuesSprite_.color565(90, 70, 0));
 
   // Fuel(燃圧): 目標帯を下回ればCYAN、上回ればYELLOW、無効値ならRED
+  // 目標帯(下限/上限)はボタン操作で実行時に変更されるFuelTargetStoreの値を使う
   uint16_t fuelColor;
   if (!r.fuelMpa.valid) {
     fuelColor = TFT_RED;
-  } else if (r.fuelMpa.value < FUEL_LOWER_MPA) {
+  } else if (r.fuelMpa.value < fuelTarget.lower) {
     fuelColor = TFT_CYAN;
-  } else if (r.fuelMpa.value > FUEL_UPPER_MPA) {
+  } else if (r.fuelMpa.value > fuelTarget.upper) {
     fuelColor = TFT_YELLOW;
   } else {
     fuelColor = TFT_GREEN;
   }
-  drawGaugeBlock("Fuel", r.fuelMpa, fuelColor, 104, 0.0f, 0.5f, FUEL_LOWER_MPA, FUEL_UPPER_MPA,
+  drawGaugeBlock("Fuel", r.fuelMpa, fuelColor, 104, 0.0f, 0.5f, fuelTarget.lower, fuelTarget.upper,
                  valuesSprite_.color565(0, 90, 0));
+
+  // 目標燃圧の数値と未保存インジケータ(Bボタン長押しで保存するまで'*'を表示)
+  valuesSprite_.setTextSize(2);
+  valuesSprite_.setTextColor(TFT_WHITE, TFT_BLACK);
+  valuesSprite_.setCursor(210, 108);
+  valuesSprite_.printf("TGT:%4.2f%s", fuelTarget.target, fuelTarget.dirty ? "*" : " ");
 
   valuesSprite_.setTextSize(3);
   valuesSprite_.setCursor(8, 160);
@@ -128,8 +136,9 @@ void DisplayUI::drawWarning(const SensorReadings& r, SystemState state, FaultRea
 }
 
 // 画面更新
-void DisplayUI::update(const SensorReadings& r, const ControllerStatus& status, bool valveEnergized) {
-  drawValues(r, status.state, valveEnergized);
+void DisplayUI::update(const SensorReadings& r, const ControllerStatus& status, bool valveEnergized,
+                        const FuelTargetInfo& fuelTarget) {
+  drawValues(r, status.state, valveEnergized, fuelTarget);
   drawWarning(r, status.state, status.faultReason);
 
   valuesSprite_.pushSprite(0, 0);
