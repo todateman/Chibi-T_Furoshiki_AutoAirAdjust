@@ -75,13 +75,13 @@ constexpr float SENSOR_RANGE_FUEL_MPA_MAX      = 1.05f;     // 燃圧センサ�
 // ============================================================
 // 制御目標・しきい値 (単位: MPa)
 // ============================================================
-// 目標燃圧はボタン(A: -0.01MPa, C: +0.01MPa)で実行時に調整可能(FuelTargetStore参照)。
+// 目標2次側空気圧はボタン(A: -0.01MPa, C: +0.01MPa)で実行時に調整可能(SecondaryTargetStore参照)。
 // 以下はNVS未保存時の初期値および調整範囲の定数。
-constexpr float FUEL_TARGET_DEFAULT_MPA = 0.35f; // NVSに保存値が無い場合の初期目標燃圧
-constexpr float FUEL_TOLERANCE_MPA      = 0.01f; // 目標燃圧の許容誤差
-constexpr float FUEL_TARGET_MIN_MPA     = 0.10f; // ボタン調整の下限
-constexpr float FUEL_TARGET_MAX_MPA     = 0.45f; // ボタン調整の上限(過圧しきい値0.50MPaに対する安全マージン)
-constexpr float FUEL_TARGET_STEP_MPA    = 0.01f; // Aボタン/Cボタン1回あたりの増減量
+constexpr float SECONDARY_TARGET_DEFAULT_MPA = 0.35f; // NVSに保存値が無い場合の初期目標2次側空気圧
+constexpr float SECONDARY_TOLERANCE_MPA      = 0.01f; // 目標2次側空気圧の許容誤差
+constexpr float SECONDARY_TARGET_MIN_MPA     = 0.10f; // ボタン調整の下限
+constexpr float SECONDARY_TARGET_MAX_MPA     = 0.45f; // ボタン調整の上限(過圧しきい値0.50MPaに対する安全マージン)
+constexpr float SECONDARY_TARGET_STEP_MPA    = 0.01f; // Aボタン/Cボタン1回あたりの増減量
 
 constexpr float PRIMARY_FILL_REFERENCE_MPA = 0.6f; // 参考表示用(充填時想定値)
 
@@ -98,7 +98,7 @@ constexpr uint32_t MAX_REGULATION_EPISODE_MS = 5000; // 連続パルスの上限
 constexpr float PRIMARY_SUPPLY_LOW_TRIP_MPA  = 0.40f; // これを下回ったら供給不能
 constexpr float PRIMARY_SUPPLY_LOW_CLEAR_MPA = 0.43f; // これを上回ったら供給可能
 
-constexpr float OVERPRESSURE_TRIP_MPA  = 0.50f; // 燃圧・2次側の過圧しきい値
+constexpr float OVERPRESSURE_TRIP_MPA  = 0.50f; // 燃圧・2次側の過圧しきい値(多重防御。制御量ではなく安全判定にのみ使用)
 constexpr float OVERPRESSURE_CLEAR_MPA = 0.45f; // これを下回ったら過圧解除
 
 constexpr uint8_t FAULT_TRIP_DEBOUNCE_SAMPLES  = 3;  // 約150ms

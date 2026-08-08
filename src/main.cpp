@@ -6,7 +6,7 @@
 #include "controller.h"
 #include "display_ui.h"
 #include "ble_service.h"
-#include "fuel_target_store.h"
+#include "secondary_target_store.h"
 
 namespace {
 
@@ -14,7 +14,7 @@ PressureSensors sensors;
 Controller controller;
 DisplayUI displayUI;
 BleService bleService;
-FuelTargetStore fuelTargetStore;
+SecondaryTargetStore secondaryTargetStore;
 
 uint32_t lastSensorReadMs = 0;
 uint32_t lastDisplayUpdateMs = 0;
@@ -40,8 +40,8 @@ void setup() {
   controller.begin(millis());
   displayUI.begin();
   bleService.begin();
-  fuelTargetStore.begin();
-  Serial.printf("[BOOT] fuel target = %.2fMPa (loaded from NVS or default)\n", fuelTargetStore.target());
+  secondaryTargetStore.begin();
+  Serial.printf("[BOOT] P2 target = %.2fMPa (loaded from NVS or default)\n", secondaryTargetStore.target());
 
   Serial.println("[BOOT] setup complete");
 }
@@ -50,19 +50,19 @@ void loop() {
   M5.update();
   uint32_t now = millis();
 
-  // 目標燃圧ボタン操作(取りこぼし防止のため間引き処理の外、毎ループ判定する)
+  // 目標2次側空気圧ボタン操作(取りこぼし防止のため間引き処理の外、毎ループ判定する)
   // Aボタン: -0.01MPa, Cボタン: +0.01MPa, Bボタン長押し: NVSへ保存
   if (M5.BtnA.wasClicked()) {
-    fuelTargetStore.adjust(-FUEL_TARGET_STEP_MPA);
-    Serial.printf("[SETTINGS] fuel target -> %.2fMPa\n", fuelTargetStore.target());
+    secondaryTargetStore.adjust(-SECONDARY_TARGET_STEP_MPA);
+    Serial.printf("[SETTINGS] P2 target -> %.2fMPa\n", secondaryTargetStore.target());
   }
   if (M5.BtnC.wasClicked()) {
-    fuelTargetStore.adjust(FUEL_TARGET_STEP_MPA);
-    Serial.printf("[SETTINGS] fuel target -> %.2fMPa\n", fuelTargetStore.target());
+    secondaryTargetStore.adjust(SECONDARY_TARGET_STEP_MPA);
+    Serial.printf("[SETTINGS] P2 target -> %.2fMPa\n", secondaryTargetStore.target());
   }
   if (M5.BtnB.wasHold()) {
-    bool saved = fuelTargetStore.save();
-    Serial.printf("[SETTINGS] fuel target %.2fMPa %s\n", fuelTargetStore.target(),
+    bool saved = secondaryTargetStore.save();
+    Serial.printf("[SETTINGS] P2 target %.2fMPa %s\n", secondaryTargetStore.target(),
                   saved ? "SAVED to NVS" : "(no change to save)");
   }
 
@@ -70,18 +70,18 @@ void loop() {
   if (now - lastSensorReadMs >= SENSOR_READ_INTERVAL_MS) {
     lastSensorReadMs = now;
 
-    latestReadings = sensors.read();                                  // センサ読み取り
-    controller.update(now, latestReadings, fuelTargetStore.lower());  // コントローラー更新
+    latestReadings = sensors.read();                                       // センサ読み取り
+    controller.update(now, latestReadings, secondaryTargetStore.lower());  // コントローラー更新
 
     ControllerStatus status = controller.status();      // コントローラー状態取得
     bool valveEnergized = controller.valveEnergized();  // バルブ通電状態取得
 
     // 状態変化があればログ出力
     if (status.state != lastLoggedState) {
-      Serial.printf("[STATE] %s -> %s (fuel=%.3fMPa p1=%.3fMPa p2=%.3fMPa)\n",
+      Serial.printf("[STATE] %s -> %s (p2=%.3fMPa p1=%.3fMPa fuel=%.3fMPa)\n",
                      systemStateLabel(lastLoggedState), systemStateLabel(status.state),
-                     latestReadings.fuelMpa.value, latestReadings.primaryMpa.value,
-                     latestReadings.secondaryMpa.value);
+                     latestReadings.secondaryMpa.value, latestReadings.primaryMpa.value,
+                     latestReadings.fuelMpa.value);
       // フォルト状態に入った場合は理由もログ出力
       if (status.state == SystemState::Fault) {
         if (status.faultReason == FaultReason::SensorError) {
@@ -107,7 +107,7 @@ void loop() {
   if (now - lastDisplayUpdateMs >= DISPLAY_UPDATE_INTERVAL_MS) {
     lastDisplayUpdateMs = now;
     displayUI.update(latestReadings, controller.status(), controller.valveEnergized(),
-                      fuelTargetStore.info());
+                      secondaryTargetStore.info());
     bleService.update(latestReadings);    // デバッグ用のUSB Serial出力も兼ねる
   }
 }

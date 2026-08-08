@@ -12,8 +12,8 @@ class Controller {
   void begin(uint32_t now);
 
   // SENSOR_READ_INTERVAL_MS 周期で呼び出すこと
-  // fuelLowerMpaはFuelTargetStoreから取得した目標帯下限(ボタンで実行時変更される)
-  void update(uint32_t now, const SensorReadings& r, float fuelLowerMpa);
+  // secondaryLowerMpaはSecondaryTargetStoreから取得した目標帯下限(2次側空気圧、ボタンで実行時変更される)
+  void update(uint32_t now, const SensorReadings& r, float secondaryLowerMpa);
 
   ControllerStatus status() const { return {state_, faultReason_}; }
   bool valveEnergized() const { return valve_.isEnergized(); }

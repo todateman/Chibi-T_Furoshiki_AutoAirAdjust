@@ -10,7 +10,7 @@ void Controller::begin(uint32_t now) {
 
 // 目標帯下限を下回った場合にソレノイドをパルス駆動するが、
 // そのパルス駆動が一定時間以上続いた場合は制御不能と判断してフォルトに遷移する。
-// 目標帯下限を下回したままパルス駆動が続く場合は、燃圧センサの故障やソレノイドの故障、配管のリークなどが疑われる。
+// 目標帯下限を下回したままパルス駆動が続く場合は、2次側空気圧センサの故障やソレノイドの故障、配管のリークなどが疑われる。
 FaultReason Controller::evaluateSafety(const SensorReadings& r) const {
   // センサのいずれかが無効値の場合は、即座にフォルト判定する
   if (!r.allValid()) return FaultReason::SensorError;
@@ -40,7 +40,7 @@ void Controller::enterFault(FaultReason reason) {
 }
 
 // 制御ループの更新処理
-void Controller::update(uint32_t now, const SensorReadings& r, float fuelLowerMpa) {
+void Controller::update(uint32_t now, const SensorReadings& r, float secondaryLowerMpa) {
   valve_.update(now); // パルス幅終了判定は毎回(呼び出し周期非依存)
 
   FaultReason detected = evaluateSafety(r);
@@ -83,9 +83,9 @@ void Controller::update(uint32_t now, const SensorReadings& r, float fuelLowerMp
         state_ = SystemState::Normal;
       }
       break;
-    // 正常状態では、燃圧が目標帯下限を下回った場合にソレノイドをパルス駆動する
+    // 正常状態では、2次側空気圧が目標帯下限を下回った場合にソレノイドをパルス駆動する
     case SystemState::Normal:
-      if (r.fuelMpa.value < fuelLowerMpa) {
+      if (r.secondaryMpa.value < secondaryLowerMpa) {
         if (pulseEpisodeStartMs_ == 0) pulseEpisodeStartMs_ = now;
         valve_.trigger(now);
         state_ = SystemState::PulseOpen;

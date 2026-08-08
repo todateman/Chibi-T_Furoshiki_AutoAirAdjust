@@ -3,7 +3,7 @@
 #include <M5Unified.h>
 
 #include "system_types.h"
-#include "fuel_target_store.h"
+#include "secondary_target_store.h"
 
 class DisplayUI {
  public:
@@ -11,14 +11,14 @@ class DisplayUI {
 
   // DISPLAY_UPDATE_INTERVAL_MS 周期で呼び出すこと
   void update(const SensorReadings& r, const ControllerStatus& status, bool valveEnergized,
-              const FuelTargetInfo& fuelTarget);
+              const SecondaryTargetInfo& secondaryTarget);
 
  private:
   M5Canvas valuesSprite_{&M5.Display};
   M5Canvas warningSprite_{&M5.Display};
 
   void drawValues(const SensorReadings& r, SystemState state, bool valveEnergized,
-                   const FuelTargetInfo& fuelTarget);
+                   const SecondaryTargetInfo& secondaryTarget);
   void drawWarning(const SensorReadings& r, SystemState state, FaultReason reason);
 
   // ラベル・大きな数値・ゲージバーを1ブロック分描画する(P1/P2/Fuel共通)

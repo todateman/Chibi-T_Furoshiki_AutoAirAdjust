@@ -28,9 +28,11 @@ struct SensorSample {
 // 1周期分のセンサ読み取りまとめ
 struct SensorReadings {
   SensorSample primaryMpa;   // 1次側空気圧
-  SensorSample secondaryMpa; // 2次側空気圧
-  SensorSample fuelMpa;      // 燃料圧力(制御量)
+  SensorSample secondaryMpa; // 2次側空気圧(制御量)
+  SensorSample fuelMpa;      // 燃料圧力(監視用。過圧判定・センサ異常判定に使用。制御量ではない)
 
+  // 制御ロジック(2次側空気圧の目標帯判定)とは独立に、
+  // 過圧判定・センサ異常判定の多重防御としてP1/P2/燃圧の3センサ全て有効性を要求する
   bool allValid() const {
     return primaryMpa.valid && secondaryMpa.valid && fuelMpa.valid;
   }

@@ -56,7 +56,7 @@ void DisplayUI::drawGaugeBlock(const char* label, const SensorSample& s, uint16_
 
 // センサ値の表示
 void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valveEnergized,
-                            const FuelTargetInfo& fuelTarget) {
+                            const SecondaryTargetInfo& secondaryTarget) {
   valuesSprite_.fillSprite(TFT_BLACK);
 
   // P1(1次側): 供給圧低下しきい値を下回ったら警告色(CYAN)、無効値ならRED
@@ -72,38 +72,39 @@ void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valv
                  PRESSURE_GAUGE_MIN_MPA, PRIMARY_SUPPLY_LOW_TRIP_MPA,
                  valuesSprite_.color565(0, 60, 90));
 
-  // P2(2次側): 過圧しきい値を上回ったら警告色(YELLOW)、無効値ならRED
+  // P2(2次側、制御量): 目標帯を下回ればCYAN、上回ればYELLOW、無効値ならRED
+  // 目標帯(下限/上限)はボタン操作で実行時に変更されるSecondaryTargetStoreの値を使う
   uint16_t p2Color;
   if (!r.secondaryMpa.valid) {
     p2Color = TFT_RED;
-  } else if (r.secondaryMpa.value > OVERPRESSURE_TRIP_MPA) {
+  } else if (r.secondaryMpa.value < secondaryTarget.lower) {
+    p2Color = TFT_CYAN;
+  } else if (r.secondaryMpa.value > secondaryTarget.upper) {
     p2Color = TFT_YELLOW;
   } else {
     p2Color = TFT_GREEN;
   }
   drawGaugeBlock("P2", r.secondaryMpa, p2Color, 54, PRESSURE_GAUGE_MIN_MPA, PRESSURE_GAUGE_MAX_MPA,
-                 OVERPRESSURE_TRIP_MPA, PRESSURE_GAUGE_MAX_MPA, valuesSprite_.color565(90, 70, 0));
+                 secondaryTarget.lower, secondaryTarget.upper, valuesSprite_.color565(0, 90, 0));
 
-  // Fuel(燃圧): 目標帯を下回ればCYAN、上回ればYELLOW、無効値ならRED
-  // 目標帯(下限/上限)はボタン操作で実行時に変更されるFuelTargetStoreの値を使う
+  // Fuel(燃圧、監視用): 過圧しきい値を上回ったら警告色(YELLOW)、無効値ならRED
+  // 燃圧は制御量ではないが、過圧判定・センサ異常判定の多重防御として引き続き監視表示する
   uint16_t fuelColor;
   if (!r.fuelMpa.valid) {
     fuelColor = TFT_RED;
-  } else if (r.fuelMpa.value < fuelTarget.lower) {
-    fuelColor = TFT_CYAN;
-  } else if (r.fuelMpa.value > fuelTarget.upper) {
+  } else if (r.fuelMpa.value > OVERPRESSURE_TRIP_MPA) {
     fuelColor = TFT_YELLOW;
   } else {
     fuelColor = TFT_GREEN;
   }
-  drawGaugeBlock("Fuel", r.fuelMpa, fuelColor, 104, 0.0f, 0.5f, fuelTarget.lower, fuelTarget.upper,
-                 valuesSprite_.color565(0, 90, 0));
+  drawGaugeBlock("Fuel", r.fuelMpa, fuelColor, 104, PRESSURE_GAUGE_MIN_MPA, PRESSURE_GAUGE_MAX_MPA,
+                 OVERPRESSURE_TRIP_MPA, PRESSURE_GAUGE_MAX_MPA, valuesSprite_.color565(90, 70, 0));
 
-  // 目標燃圧の数値と未保存インジケータ(Bボタン長押しで保存するまで'*'を表示)
+  // 目標2次側空気圧の数値と未保存インジケータ(Bボタン長押しで保存するまで'*'を表示)
   valuesSprite_.setTextSize(2);
   valuesSprite_.setTextColor(TFT_WHITE, TFT_BLACK);
-  valuesSprite_.setCursor(210, 108);
-  valuesSprite_.printf("TGT:%4.2f%s", fuelTarget.target, fuelTarget.dirty ? "*" : " ");
+  valuesSprite_.setCursor(210, 58);
+  valuesSprite_.printf("TGT:%4.2f%s", secondaryTarget.target, secondaryTarget.dirty ? "*" : " ");
 
   valuesSprite_.setTextSize(3);
   valuesSprite_.setCursor(8, 160);
@@ -137,8 +138,8 @@ void DisplayUI::drawWarning(const SensorReadings& r, SystemState state, FaultRea
 
 // 画面更新
 void DisplayUI::update(const SensorReadings& r, const ControllerStatus& status, bool valveEnergized,
-                        const FuelTargetInfo& fuelTarget) {
-  drawValues(r, status.state, valveEnergized, fuelTarget);
+                        const SecondaryTargetInfo& secondaryTarget) {
+  drawValues(r, status.state, valveEnergized, secondaryTarget);
   drawWarning(r, status.state, status.faultReason);
 
   valuesSprite_.pushSprite(0, 0);
