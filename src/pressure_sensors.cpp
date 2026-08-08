@@ -48,6 +48,8 @@ SensorSample PressureSensors::readPrimary() {
   if (!primaryOk_ || !i2cPing(PRIMARY_SENSOR_I2C_ADDR)) return s;
 
   // MPX5700AP は kPa 単位で返すので、MPa に変換する
+  // getPressureValue_kpa()はセンサ基板側で既に0.01kPa単位(kPa×100の固定小数点)を保持しており、
+  // ここでの変換は丸めを行わずfloatのままMPaへスケール変換するだけなので、そのネイティブ分解能をそのまま維持する
   float kpa = primarySensor_.getPressureValue_kpa(0);
   if (!inRange(kpa, SENSOR_RANGE_PRIMARY_KPA_MIN, SENSOR_RANGE_PRIMARY_KPA_MAX)) return s;
 
@@ -62,6 +64,7 @@ SensorSample PressureSensors::readSecondary() {
   if (!secondaryOk_ || !i2cPing(SECONDARY_SENSOR_I2C_ADDR)) return s;
 
   // MPX5700AP は kPa 単位で返すので、MPa に変換する
+  // (readPrimary()と同様、0.01kPa単位のネイティブ分解能を丸めずに維持する)
   float kpa = secondarySensor_.getPressureValue_kpa(0);
   if (!inRange(kpa, SENSOR_RANGE_SECONDARY_KPA_MIN, SENSOR_RANGE_SECONDARY_KPA_MAX)) return s;
 

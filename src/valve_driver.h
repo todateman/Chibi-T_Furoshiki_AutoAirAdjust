@@ -8,8 +8,8 @@ class ValveDriver {
  public:
   void begin();
 
-  // 固定パルス幅(PULSE_WIDTH_MS)の開弁を開始する
-  void trigger(uint32_t now);
+  // 指定したパルス幅(widthMs)で開弁を開始する。呼び出し側(Controller)が自己適応させた幅を渡す。
+  void trigger(uint32_t now, uint32_t widthMs);
 
   // loop()毎回呼び出すこと。パルス幅経過で自動的に閉弁する
   void update(uint32_t now);
@@ -23,4 +23,5 @@ class ValveDriver {
  private:
   bool pulsing_ = false;
   uint32_t pulseStartMs_ = 0;
+  uint32_t pulseWidthMs_ = 0;
 };

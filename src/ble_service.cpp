@@ -53,7 +53,9 @@ void BleService::update(const SensorReadings& r) {
   bool connected = server_ != nullptr && server_->getConnectedCount() > 0;
 
   // デバッグ用: BLE接続の有無によらず、送信(予定)データをUSB Serialにも出力する
-  Serial.printf("[BLE TX] PRI=%.2f SEC=%.2f FUEL=%.2f (connected=%s)\n", lastPrimaryMpa_,
+  // MPa 5桁(=0.01kPa相当)まで表示し、センサのネイティブ分解能でのノイズ低減効果を目視確認できるようにする
+  // (BLE Notify側のペイロード書式(下記buf)は対向機の実装に合わせるため変更しない)
+  Serial.printf("[BLE TX] PRI=%.5f SEC=%.5f FUEL=%.5f (connected=%s)\n", lastPrimaryMpa_,
                 lastSecondaryMpa_, lastFuelMpa_, connected ? "yes" : "no");
 
   if (!connected) return;

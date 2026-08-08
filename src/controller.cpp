@@ -6,6 +6,7 @@ void Controller::begin(uint32_t now) {
   valve_.begin();
   state_ = SystemState::Init;
   faultReason_ = FaultReason::None;
+  currentPulseWidthMs_ = PULSE_WIDTH_MIN_MS;
 }
 
 // 目標帯下限を下回った場合にソレノイドをパルス駆動するが、
@@ -37,10 +38,27 @@ void Controller::enterFault(FaultReason reason) {
   valve_.forceClose();
   tripStreak_ = 0;
   clearStreak_ = 0;
+  currentPulseWidthMs_ = PULSE_WIDTH_MIN_MS; // フォルト復帰後は安全側(最小)から再学習させる
+}
+
+// 直近1回のパルス駆動の結果(パルス+クールダウン後の2次側空気圧)を見て、
+// 次回のパルス幅を自己適応的に調整する。
+// - 目標帯上限を超えていれば過供給(1パルスで1次圧近くまで上昇するケースを含む)なので短縮する
+// - まだ目標帯下限を下回っていれば供給不足なので伸長する
+// - 目標帯内に収まっていれば、現在の幅が適正なのでそのまま維持する
+void Controller::adjustPulseWidth(const SensorReadings& r, const SecondaryTargetInfo& secondaryTarget) {
+  if (r.secondaryMpa.value > secondaryTarget.upper) {
+    float shrunk = currentPulseWidthMs_ * PULSE_WIDTH_SHRINK_FACTOR;
+    currentPulseWidthMs_ = (shrunk > static_cast<float>(PULSE_WIDTH_MIN_MS)) ? shrunk : static_cast<float>(PULSE_WIDTH_MIN_MS);
+  } else if (r.secondaryMpa.value < secondaryTarget.lower) {
+    float grown = currentPulseWidthMs_ * PULSE_WIDTH_GROW_FACTOR;
+    currentPulseWidthMs_ = (grown < static_cast<float>(PULSE_WIDTH_MAX_MS)) ? grown : static_cast<float>(PULSE_WIDTH_MAX_MS);
+  }
+  // 目標帯内なら維持(何もしない)
 }
 
 // 制御ループの更新処理
-void Controller::update(uint32_t now, const SensorReadings& r, float secondaryLowerMpa) {
+void Controller::update(uint32_t now, const SensorReadings& r, const SecondaryTargetInfo& secondaryTarget) {
   valve_.update(now); // パルス幅終了判定は毎回(呼び出し周期非依存)
 
   FaultReason detected = evaluateSafety(r);
@@ -85,9 +103,9 @@ void Controller::update(uint32_t now, const SensorReadings& r, float secondaryLo
       break;
     // 正常状態では、2次側空気圧が目標帯下限を下回った場合にソレノイドをパルス駆動する
     case SystemState::Normal:
-      if (r.secondaryMpa.value < secondaryLowerMpa) {
+      if (r.secondaryMpa.value < secondaryTarget.lower) {
         if (pulseEpisodeStartMs_ == 0) pulseEpisodeStartMs_ = now;
-        valve_.trigger(now);
+        valve_.trigger(now, static_cast<uint32_t>(currentPulseWidthMs_));
         state_ = SystemState::PulseOpen;
       } else {
         pulseEpisodeStartMs_ = 0; // 目標帯内 or 上限超過なら連続区間の計測をリセット
@@ -103,7 +121,8 @@ void Controller::update(uint32_t now, const SensorReadings& r, float secondaryLo
     // パルス駆動終了後は、パルス間の休止時間が経過するまで待機する
     case SystemState::Cooldown:
       if (now - cooldownStartMs_ >= PULSE_COOLDOWN_MS) {
-        state_ = SystemState::Normal; // 次周期で再判定
+        adjustPulseWidth(r, secondaryTarget); // 直近パルスの結果を見て次回幅を自己適応
+        state_ = SystemState::Normal;         // 次周期で再判定
       }
       break;
     // フォルト状態では、上記の安全評価でフォルトが解除されるまで待機する

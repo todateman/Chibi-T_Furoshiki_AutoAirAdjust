@@ -51,7 +51,9 @@ constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS = 100; // 10Hz
 // ============================================================
 // センサ関連定数
 // ============================================================
-constexpr uint8_t MEAN_SAMPLE_SIZE_MPX5700   = 10;   // DFRobotライブラリ内蔵移動平均サンプル数
+constexpr uint8_t MEAN_SAMPLE_SIZE_MPX5700   = 30;   // DFRobotライブラリ内蔵移動平均サンプル数
+// 要実機調整: 大きいほどノイズは減り微小な圧力上昇を検知しやすくなるが、実際の変化への追従はやや緩やかになる(トレードオフ)
+// ライブラリの初期値は 10 で、MPX5700APのノイズレベルでは十分な精度が得られないため、30に増やす
 constexpr uint8_t ADS1015_OVERSAMPLE_COUNT   = 4;    // ソフトウェア平均回数
 constexpr adsGain_t FUEL_ADS_GAIN            = GAIN_ONE; // ±4.096V, 12bit
 constexpr int16_t FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS = 20; // 要実機調整: フローティング(センサ未接続)検出用の許容ばらつき(LSB)。暫定値
@@ -88,7 +90,11 @@ constexpr float PRIMARY_FILL_REFERENCE_MPA = 0.6f; // 参考表示用(充填時�
 // ============================================================
 // パルス駆動パラメータ
 // ============================================================
-constexpr uint32_t PULSE_WIDTH_MS    = 50;  // 1回の開弁時間
+// 自己適応パルス幅制御: 最小幅から開始し、パルス結果(下限未達=伸長/上限超過=短縮)に応じて次回幅を調整する
+constexpr uint32_t PULSE_WIDTH_MIN_MS = 5;   // 初期/下限パルス幅(要実機調整: ソレノイドが確実に開弁する最短時間)
+constexpr uint32_t PULSE_WIDTH_MAX_MS = 50;  // 上限パルス幅(安全キャップ、旧PULSE_WIDTH_MS)
+constexpr float PULSE_WIDTH_GROW_FACTOR   = 1.5f; // 目標帯下限未達時の伸長倍率
+constexpr float PULSE_WIDTH_SHRINK_FACTOR = 0.5f; // 目標帯上限超過(過供給)時の短縮倍率
 constexpr uint32_t PULSE_COOLDOWN_MS = 300; // パルス間の最小休止時間
 constexpr uint32_t MAX_REGULATION_EPISODE_MS = 5000; // 連続パルスの上限(多重防御)
 

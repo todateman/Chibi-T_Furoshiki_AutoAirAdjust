@@ -71,7 +71,7 @@ void loop() {
     lastSensorReadMs = now;
 
     latestReadings = sensors.read();                                       // センサ読み取り
-    controller.update(now, latestReadings, secondaryTargetStore.lower());  // コントローラー更新
+    controller.update(now, latestReadings, secondaryTargetStore.info());  // コントローラー更新
 
     ControllerStatus status = controller.status();      // コントローラー状態取得
     bool valveEnergized = controller.valveEnergized();  // バルブ通電状態取得
@@ -97,8 +97,8 @@ void loop() {
 
     // バルブ通電状態変化があればログ出力
     if (valveEnergized != lastLoggedValve) {
-      Serial.printf("[VALVE] %s t=%lu\n", valveEnergized ? "OPEN" : "CLOSE",
-                     static_cast<unsigned long>(now));
+      Serial.printf("[VALVE] %s t=%lu width=%.0fms\n", valveEnergized ? "OPEN" : "CLOSE",
+                     static_cast<unsigned long>(now), controller.currentPulseWidthMs());
       lastLoggedValve = valveEnergized;
     }
   }
