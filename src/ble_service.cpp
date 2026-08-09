@@ -44,13 +44,17 @@ void BleService::onDisconnect(BLEServer* /*server*/) {
   BLEDevice::startAdvertising();  // 再Advertisingしないと再接続できなくなるため必須
 }
 
+bool BleService::isConnected() const {
+  return server_ != nullptr && server_->getConnectedCount() > 0;
+}
+
 void BleService::update(const SensorReadings& r) {
   // 無効値は直近の有効値で穴埋めする(センサ一時異常時も監視データを送り続ける)
   if (r.primaryMpa.valid) lastPrimaryMpa_ = r.primaryMpa.value;
   if (r.secondaryMpa.valid) lastSecondaryMpa_ = r.secondaryMpa.value;
   if (r.fuelMpa.valid) lastFuelMpa_ = r.fuelMpa.value;
 
-  bool connected = server_ != nullptr && server_->getConnectedCount() > 0;
+  bool connected = isConnected();
 
   // デバッグ用: BLE接続の有無によらず、送信(予定)データをUSB Serialにも出力する
   // MPa 5桁(=0.01kPa相当)まで表示し、センサのネイティブ分解能でのノイズ低減効果を目視確認できるようにする
@@ -60,10 +64,23 @@ void BleService::update(const SensorReadings& r) {
 
   if (!connected) return;
 
-  char buf[80];
-  snprintf(buf, sizeof(buf), "PRI:%.2f\nSEC:%.2f\nFUEL:%.2f\n", lastPrimaryMpa_,
-            lastSecondaryMpa_, lastFuelMpa_);
+  // ATT MTUは既定値(23byte)のままのため、Notify 1回あたりの実データ上限は20byte(=MTU-3)。
+  // PRI/SEC/FUELをまとめた1本の文字列(28byte超)を1回のnotify()で送ると、GATT
+  // NotificationはATT層で再結合されない仕様のため末尾が確実に切り捨てられ、
+  // M5NanoC6側のタグ判定(PRI:/SEC:/FUEL:)がずれて誤動作する。
+  // M5NanoC6側のnotifyCallback()はタグ文字列ごとにメッセージを個別に受信する設計のため、
+  // ここでも1種類ずつ個別にnotify()する
+  char buf[32];
 
+  snprintf(buf, sizeof(buf), "PRI:%.2f\n", lastPrimaryMpa_);
+  notifyChar_->setValue(reinterpret_cast<uint8_t*>(buf), strlen(buf));
+  notifyChar_->notify();
+
+  snprintf(buf, sizeof(buf), "SEC:%.2f\n", lastSecondaryMpa_);
+  notifyChar_->setValue(reinterpret_cast<uint8_t*>(buf), strlen(buf));
+  notifyChar_->notify();
+
+  snprintf(buf, sizeof(buf), "FUEL:%.2f\n", lastFuelMpa_);
   notifyChar_->setValue(reinterpret_cast<uint8_t*>(buf), strlen(buf));
   notifyChar_->notify();
 }

@@ -11,14 +11,14 @@ class DisplayUI {
 
   // DISPLAY_UPDATE_INTERVAL_MS 周期で呼び出すこと
   void update(const SensorReadings& r, const ControllerStatus& status, bool valveEnergized,
-              const SecondaryTargetInfo& secondaryTarget);
+              const SecondaryTargetInfo& secondaryTarget, bool bleConnected);
 
  private:
   M5Canvas valuesSprite_{&M5.Display};
   M5Canvas warningSprite_{&M5.Display};
 
   void drawValues(const SensorReadings& r, SystemState state, bool valveEnergized,
-                   const SecondaryTargetInfo& secondaryTarget);
+                   const SecondaryTargetInfo& secondaryTarget, bool bleConnected);
   void drawWarning(const SensorReadings& r, SystemState state, FaultReason reason);
 
   // ラベル・大きな数値・ゲージバーを1ブロック分描画する(P1/P2/Fuel共通)

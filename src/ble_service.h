@@ -13,6 +13,10 @@ class BleService : public BLEServerCallbacks {
   // DISPLAY_UPDATE_INTERVAL_MS 周期で呼び出すこと(表示更新と同期)
   void update(const SensorReadings& r);
 
+  // BLEクライアント(M5NanoC6)が接続中かどうか。update()の呼び出しタイミングに依存せず
+  // いつでも呼び出し可能(LCD表示用)
+  bool isConnected() const;
+
  private:
   // BLEServerCallbacks
   void onConnect(BLEServer* server) override;

@@ -74,8 +74,8 @@ src/
 ├── pressure_sensors.h/.cpp  # 3センサの初期化・読み取り・kPa/MPa変換・異常検知（燃圧センサはADS1015連続変換モードで非ブロッキング読み取り）
 ├── valve_driver.h/.cpp      # ソレノイドの非ブロッキング可変パルス駆動（毎ループ呼び出しでオフ判定）
 ├── controller.h/.cpp        # 状態機械・安全保護ロジック（バルブのオフ判定はupdateValve()として分離）
-├── display_ui.h/.cpp        # M5Core2 LCDへのリアルタイム表示
-├── ble_service.h/.cpp       # BLE PeripheralによるセンサデータNotify送信
+├── display_ui.h/.cpp        # M5Core2 LCDへのリアルタイム表示（BLE接続状態表示を含む）
+├── ble_service.h/.cpp       # BLE PeripheralによるセンサデータNotify送信・接続状態管理
 ├── secondary_target_store.h/.cpp # 目標2次側空気圧の実行時保持・ボタン調整・NVS(Preferences)への永続化
 └── main.cpp                 # setup()/loop()、各モジュールの統合とシリアルログ出力
 ```
@@ -108,6 +108,7 @@ M5NanoC6はさらにI2C経由でM5Stack Basicへ中継します。
   （例: `PRI:0.85\nSEC:0.72\nFUEL:2.10\n`）
 - センサ異常時（`SensorSample.valid == false`）は、直近の有効値を送り続けます  
   （安全制御は本体側の `Controller` が独立して担保するため、BLE Notifyは監視データの中継に徹します）
+- 接続状態はLCD画面右上に `BLE:ON`（緑）/ `BLE:NO`（赤）として常時表示されます（`BleService::isConnected()`）
 
 | 用途 | UUID |
 | --- | --- |
@@ -140,9 +141,10 @@ pio device monitor -b 115200        # シリアルモニタ
 3. 定常運転中は状態遷移（`[STATE] ...`）、バルブの開閉（`[VALVE] OPEN/CLOSE t=... width=...ms`）、異常発生・解消（`[FAULT] ...`）がエッジトリガでログ出力される。  
    `width=` は自己適応中の現在のパルス幅で、供給不足が続くと伸長、過供給が起きると短縮されることを確認する。
 4. LCD画面には1次側（P1）・2次側（P2）・燃圧（Fuel）がそれぞれ大きな数値とゲージバーでリアルタイム表示され、下部にバルブ状態、フォルト発生時のみ警告表示（赤背景）が表示される。  
-   各ゲージの表示色はそのセンサ自身の有効性・しきい値（P1: `PRIMARY_SUPPLY_LOW_TRIP_MPA`、P2: 目標帯（制御量）、Fuel: `OVERPRESSURE_TRIP_MPA`、監視のみ）との比較のみで決まり、他センサの異常やFault遷移による影響は受けない。
+   各ゲージの表示色はそのセンサ自身の有効性・しきい値（P1: `PRIMARY_SUPPLY_LOW_TRIP_MPA`、P2: 目標帯（制御量）、Fuel: `OVERPRESSURE_TRIP_MPA`、監視のみ）との比較のみで決まり、他センサの異常やFault遷移による影響は受けない。  
+   画面右上には `BLE:ON`（緑）/ `BLE:NO`（赤）でBLEクライアントの接続状態が常時表示され、PCを繋がずシリアルログを見られない実機運用時でも接続の有無を一目で確認できる。
 5. BLE通信は、起動時にシリアルログで `[BLE] advertising started` を確認。  
-   M5NanoC6等のBLE Centralが接続すると `[BLE] client connected`、切断すると `[BLE] client disconnected, restarting advertising` が出力される。  
+   M5NanoC6等のBLE Centralが接続すると `[BLE] client connected`、切断すると `[BLE] client disconnected, restarting advertising` が出力され、これと連動してLCD右上の表示も `BLE:NO`（赤）→ `BLE:ON`（緑）に切り替わることを確認する。  
    nRF Connect等のBLEスキャナアプリでも、デバイス名 `ChibiT-AutoAirAdjust` へ接続し、Notify Characteristic（`1d25ec49-...`）を購読することで送信データを直接確認できる。
 6. デバッグ用に、BLE接続の有無によらず `DISPLAY_UPDATE_INTERVAL_MS`（100ms）ごとに `[BLE TX] PRI=... SEC=... FUEL=... (connected=yes/no)` がUSB Serialへ出力される（MPa値は5桁表示＝0.01kPa相当の分解能まで確認可能）。  
    BLE未接続でも送信予定データと接続状態をシリアルモニタだけで確認できる。  

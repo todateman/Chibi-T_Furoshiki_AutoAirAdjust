@@ -111,7 +111,7 @@ void loop() {
   if (now - lastDisplayUpdateMs >= DISPLAY_UPDATE_INTERVAL_MS) {
     lastDisplayUpdateMs = now;
     displayUI.update(latestReadings, controller.status(), controller.valveEnergized(),
-                      secondaryTargetStore.info());
+                      secondaryTargetStore.info(), bleService.isConnected());
     bleService.update(latestReadings);    // デバッグ用のUSB Serial出力も兼ねる
   }
 }

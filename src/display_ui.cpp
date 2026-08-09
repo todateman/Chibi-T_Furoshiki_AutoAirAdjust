@@ -56,8 +56,14 @@ void DisplayUI::drawGaugeBlock(const char* label, const SensorSample& s, uint16_
 
 // センサ値の表示
 void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valveEnergized,
-                            const SecondaryTargetInfo& secondaryTarget) {
+                            const SecondaryTargetInfo& secondaryTarget, bool bleConnected) {
   valuesSprite_.fillSprite(TFT_BLACK);
+
+  // BLE接続状態(画面右上、P1行と同じ高さの空きスペースに常時表示)
+  valuesSprite_.setTextSize(2);
+  valuesSprite_.setTextColor(bleConnected ? TFT_GREEN : TFT_RED, TFT_BLACK);
+  valuesSprite_.setCursor(230, 8);
+  valuesSprite_.print(bleConnected ? "BLE:ON" : "BLE:NO");
 
   // P1(1次側): 供給圧低下しきい値を下回ったら警告色(CYAN)、無効値ならRED
   uint16_t p1Color;
@@ -138,8 +144,8 @@ void DisplayUI::drawWarning(const SensorReadings& r, SystemState state, FaultRea
 
 // 画面更新
 void DisplayUI::update(const SensorReadings& r, const ControllerStatus& status, bool valveEnergized,
-                        const SecondaryTargetInfo& secondaryTarget) {
-  drawValues(r, status.state, valveEnergized, secondaryTarget);
+                        const SecondaryTargetInfo& secondaryTarget, bool bleConnected) {
+  drawValues(r, status.state, valveEnergized, secondaryTarget, bleConnected);
   drawWarning(r, status.state, status.faultReason);
 
   valuesSprite_.pushSprite(0, 0);
