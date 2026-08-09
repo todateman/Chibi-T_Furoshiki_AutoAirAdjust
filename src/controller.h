@@ -12,6 +12,11 @@ class Controller {
  public:
   void begin(uint32_t now);
 
+  // 毎ループ(周期処理の間引きの外側)で呼び出すこと。
+  // バルブのオフ判定(パルス幅経過判定)はSENSOR_READ_INTERVAL_MS周期に依存させると
+  // 最小パルス幅(PULSE_WIDTH_MIN_MS)より遅れて閉弁し過供給を招くため、update()から分離している。
+  void updateValve(uint32_t now) { valve_.update(now); }
+
   // SENSOR_READ_INTERVAL_MS 周期で呼び出すこと
   // secondaryTargetはSecondaryTargetStoreから取得した目標帯情報(下限/上限、ボタンで実行時変更される)
   void update(uint32_t now, const SensorReadings& r, const SecondaryTargetInfo& secondaryTarget);

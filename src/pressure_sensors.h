@@ -24,6 +24,12 @@ class PressureSensors {
   bool secondaryOk_ = false;
   bool adsOk_ = false;
 
+  // 燃圧センサ(ADS1015)は連続変換モードでバックグラウンド変換させ、
+  // read()呼び出しごとに最新変換結果(非ブロッキング)を1個ずつリングバッファに積んで移動平均する
+  int16_t fuelSampleBuffer_[ADS1015_OVERSAMPLE_COUNT] = {0};
+  uint8_t fuelSampleIndex_ = 0;
+  uint8_t fuelSampleFilled_ = 0; // 起動直後、バッファが埋まるまでの助走用カウント
+
   SensorSample readPrimary();
   SensorSample readSecondary();
   SensorSample readFuel();

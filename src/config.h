@@ -54,7 +54,12 @@ constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS = 100; // 10Hz
 constexpr uint8_t MEAN_SAMPLE_SIZE_MPX5700   = 30;   // DFRobotライブラリ内蔵移動平均サンプル数
 // 要実機調整: 大きいほどノイズは減り微小な圧力上昇を検知しやすくなるが、実際の変化への追従はやや緩やかになる(トレードオフ)
 // ライブラリの初期値は 10 で、MPX5700APのノイズレベルでは十分な精度が得られないため、30に増やす
-constexpr uint8_t ADS1015_OVERSAMPLE_COUNT   = 4;    // ソフトウェア平均回数
+// ADS1015は連続変換モードでバックグラウンド駆動し、read()呼び出し(SENSOR_READ_INTERVAL_MS周期)ごとに
+// 最新変換結果を1個だけ非ブロッキング取得してリングバッファに積む(移動平均バッファ深さ)。
+// そのため実効窓幅は 約 ADS1015_OVERSAMPLE_COUNT × SENSOR_READ_INTERVAL_MS(既定値では約200ms)に伸びる。
+// 旧実装(readADC_SingleEndedを4回連続ブロッキング呼び出し、数ms未満で完結)より窓が広がるため、
+// FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS(フローティング検出の許容ばらつき)は実機再チューニングが必要な場合がある。
+constexpr uint8_t ADS1015_OVERSAMPLE_COUNT   = 4;    // 移動平均バッファ深さ(サンプル数)
 constexpr adsGain_t FUEL_ADS_GAIN            = GAIN_ONE; // ±4.096V, 12bit
 constexpr int16_t FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS = 20; // 要実機調整: フローティング(センサ未接続)検出用の許容ばらつき(LSB)。暫定値
 

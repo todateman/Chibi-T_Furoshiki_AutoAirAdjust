@@ -50,6 +50,10 @@ void loop() {
   M5.update();
   uint32_t now = millis();
 
+  // バルブのオフ判定(パルス幅経過判定)は、周期処理の間引きに巻き込まれると
+  // 最小パルス幅(PULSE_WIDTH_MIN_MS)より閉弁が遅れて過供給を招くため、毎ループ無条件で実行する
+  controller.updateValve(now);
+
   // 目標2次側空気圧ボタン操作(取りこぼし防止のため間引き処理の外、毎ループ判定する)
   // Aボタン: -0.01MPa, Cボタン: +0.01MPa, Bボタン長押し: NVSへ保存
   if (M5.BtnA.wasClicked()) {

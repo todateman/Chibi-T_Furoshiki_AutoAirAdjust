@@ -59,7 +59,8 @@ void Controller::adjustPulseWidth(const SensorReadings& r, const SecondaryTarget
 
 // 制御ループの更新処理
 void Controller::update(uint32_t now, const SensorReadings& r, const SecondaryTargetInfo& secondaryTarget) {
-  valve_.update(now); // パルス幅終了判定は毎回(呼び出し周期非依存)
+  // パルス幅終了判定(valve_.update())はここでは行わない。updateValve()として分離し、
+  // main.cppのloop()から毎ループ(この周期呼び出しより高頻度に)呼び出すこと。
 
   FaultReason detected = evaluateSafety(r);
 

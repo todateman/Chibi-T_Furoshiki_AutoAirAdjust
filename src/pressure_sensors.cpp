@@ -37,6 +37,9 @@ bool PressureSensors::begin() {
   adsOk_ = i2cPing(ADS1015_I2C_ADDR) && ads_.begin(ADS1015_I2C_ADDR, &Wire);
   if (adsOk_) {
     ads_.setGain(FUEL_ADS_GAIN);
+    // シングルショットのブロッキング読み取り(readADC_SingleEnded)はメインループを数msジッタさせるため、
+    // 連続変換モードを1度だけ開始し、以降はgetLastConversionResults()で最新値を非ブロッキング取得する
+    ads_.startADCReading(MUX_BY_CHANNEL[ADS1015_FUEL_CHANNEL], /*continuous=*/true);
   }
 
   return primaryOk_ && secondaryOk_ && adsOk_;
@@ -78,12 +81,18 @@ SensorSample PressureSensors::readFuel() {
   SensorSample s;
   if (!adsOk_ || !i2cPing(ADS1015_I2C_ADDR)) return s;
 
-  // ソフトウェア平均を行うため、複数回読み取って平均する
+  // 連続変換モードでバックグラウンド変換中の最新結果を1個だけ非ブロッキングで取得し、
+  // リングバッファに積む(オーバーサンプルはread()呼び出し=SENSOR_READ_INTERVAL_MSごとに1サンプルずつ進む)
+  fuelSampleBuffer_[fuelSampleIndex_] = ads_.getLastConversionResults();
+  fuelSampleIndex_ = (fuelSampleIndex_ + 1) % ADS1015_OVERSAMPLE_COUNT;
+  if (fuelSampleFilled_ < ADS1015_OVERSAMPLE_COUNT) fuelSampleFilled_++;
+  if (fuelSampleFilled_ < ADS1015_OVERSAMPLE_COUNT) return s; // 起動直後、バッファが埋まるまでは無効値
+
   int32_t sum = 0;
   int16_t sampleMin = INT16_MAX;
   int16_t sampleMax = INT16_MIN;
   for (uint8_t i = 0; i < ADS1015_OVERSAMPLE_COUNT; i++) {
-    int16_t raw = ads_.readADC_SingleEnded(ADS1015_FUEL_CHANNEL);
+    int16_t raw = fuelSampleBuffer_[i];
     sum += raw;
     sampleMin = min(sampleMin, raw);
     sampleMax = max(sampleMax, raw);
