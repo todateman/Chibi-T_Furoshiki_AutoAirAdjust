@@ -98,7 +98,12 @@ SensorSample PressureSensors::readFuel() {
     sampleMax = max(sampleMax, raw);
   }
   // サンプル間のばらつきが大きい場合、AIN0がフローティング(センサ未接続)と判断し無効として返す
-  if ((sampleMax - sampleMin) > FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS) return s;
+  if ((sampleMax - sampleMin) > FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS) {
+    // 診断用: FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS(暫定値)の実機再チューニング用データ収集。
+    // [VALVE] OPEN/CLOSEログとの時刻相関を見て、バルブ切替時のノイズ起因か切り分ける。
+    Serial.printf("[FUEL_ADC] spread=%d (threshold=%d)\n", sampleMax - sampleMin, FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS);
+    return s;
+  }
   // 平均値を計算し、電圧に変換する
   int16_t rawAvg = static_cast<int16_t>(sum / ADS1015_OVERSAMPLE_COUNT);
   float vAtPin = ads_.computeVolts(rawAvg);

@@ -75,7 +75,13 @@ void loop() {
     lastSensorReadMs = now;
 
     latestReadings = sensors.read();                                       // センサ読み取り
-    controller.update(now, latestReadings, secondaryTargetStore.info());  // コントローラー更新
+    // sensors.read()は内部で約200msブロッキングするため、ループ先頭で取得した`now`を
+    // そのままcontroller.update()に渡すと、valve_.trigger()に刻まれるタイムスタンプが
+    // 実時刻より約200ms過去になり、次ループのupdateValve()判定で「パルス幅経過」と
+    // 誤判定して実際の通電時間がcurrentPulseWidthMs_と乖離する(オーバーシュートの直接原因)。
+    // ブロッキング読み取り直後に時刻を再取得し、以降の状態遷移・パルストリガーの基準に使う。
+    uint32_t nowAfterRead = millis();
+    controller.update(nowAfterRead, latestReadings, secondaryTargetStore.info());  // コントローラー更新
 
     ControllerStatus status = controller.status();      // コントローラー状態取得
     bool valveEnergized = controller.valveEnergized();  // バルブ通電状態取得
@@ -102,7 +108,7 @@ void loop() {
     // バルブ通電状態変化があればログ出力
     if (valveEnergized != lastLoggedValve) {
       Serial.printf("[VALVE] %s t=%lu width=%.0fms\n", valveEnergized ? "OPEN" : "CLOSE",
-                     static_cast<unsigned long>(now), controller.currentPulseWidthMs());
+                     static_cast<unsigned long>(nowAfterRead), controller.currentPulseWidthMs());
       lastLoggedValve = valveEnergized;
     }
   }

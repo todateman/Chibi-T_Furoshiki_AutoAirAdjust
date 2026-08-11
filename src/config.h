@@ -61,7 +61,12 @@ constexpr uint8_t MEAN_SAMPLE_SIZE_MPX5700   = 30;   // DFRobotライブラリ�
 // FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS(フローティング検出の許容ばらつき)は実機再チューニングが必要な場合がある。
 constexpr uint8_t ADS1015_OVERSAMPLE_COUNT   = 4;    // 移動平均バッファ深さ(サンプル数)
 constexpr adsGain_t FUEL_ADS_GAIN            = GAIN_ONE; // ±4.096V, 12bit
-constexpr int16_t FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS = 20; // 要実機調整: フローティング(センサ未接続)検出用の許容ばらつき(LSB)。暫定値
+// 実機計測(2026-08-11): バルブ切替直後にspreadが最大177まで跳ね上がり、約2秒(約10サンプル)かけて
+// 減衰するノイズ相関を確認(診断ログ[FUEL_ADC] spread=... 参照)。旧閾値20ではこの正常な
+// バルブ動作起因の揺れを毎回センサ未接続と誤検知していたため、観測ピーク(177)に余裕を持たせて
+// 250へ引き上げる。要実機再確認: 燃圧センサーを物理的に切断した状態でSensorError(FUEL)が
+// 引き続き正しく検出されることを確認してから確定すること(誤検知緩和のため感度を落としすぎていないか)。
+constexpr int16_t FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS = 250; // フローティング(センサ未接続)検出用の許容ばらつき(LSB)
 
 // 燃圧センサ: 0.5-4.5V ⇔ 0-1.0MPa の線形変換
 constexpr float FUEL_SENSOR_V_AT_0MPA   = 0.5f; // 0MPa時の電圧
@@ -96,11 +101,14 @@ constexpr float PRIMARY_FILL_REFERENCE_MPA = 0.6f; // 参考表示用(充填時�
 // パルス駆動パラメータ
 // ============================================================
 // 自己適応パルス幅制御: 最小幅から開始し、パルス結果(下限未達=伸長/上限超過=短縮)に応じて次回幅を調整する
-constexpr uint32_t PULSE_WIDTH_MIN_MS = 5;   // 初期/下限パルス幅(要実機調整: ソレノイドが確実に開弁する最短時間)
+// 実機計測(2026-08-11, RIGOL DHO804/VISA-MCP, docs/oscilloscope_dho804_visa_mcp.md参照):
+//   デッドタイム(SOLENOID_PIN駆動開始→2次側センサ電圧の有意な立ち上がり) 実測 約5.4ms
+//   整定時間(駆動停止→2次側センサ電圧が最終値の±10%以内に収束)       実測 約21ms
+constexpr uint32_t PULSE_WIDTH_MIN_MS = 8;   // 下限パルス幅(実測デッドタイム約5.4ms + 微小送気マージンを反映。旧暫定値5ms)
 constexpr uint32_t PULSE_WIDTH_MAX_MS = 50;  // 上限パルス幅(安全キャップ、旧PULSE_WIDTH_MS)
 constexpr float PULSE_WIDTH_GROW_FACTOR   = 1.5f; // 目標帯下限未達時の伸長倍率
 constexpr float PULSE_WIDTH_SHRINK_FACTOR = 0.5f; // 目標帯上限超過(過供給)時の短縮倍率
-constexpr uint32_t PULSE_COOLDOWN_MS = 300; // パルス間の最小休止時間
+constexpr uint32_t PULSE_COOLDOWN_MS = 50; // パルス間の最小休止時間(実測整定時間 約21ms << 50ms で十分なマージンを確保)
 constexpr uint32_t MAX_REGULATION_EPISODE_MS = 5000; // 連続パルスの上限(多重防御)
 
 // ============================================================
@@ -112,8 +120,14 @@ constexpr float PRIMARY_SUPPLY_LOW_CLEAR_MPA = 0.43f; // これを上回った�
 constexpr float OVERPRESSURE_TRIP_MPA  = 0.50f; // 燃圧・2次側の過圧しきい値(多重防御。制御量ではなく安全判定にのみ使用)
 constexpr float OVERPRESSURE_CLEAR_MPA = 0.45f; // これを下回ったら過圧解除
 
-constexpr uint8_t FAULT_TRIP_DEBOUNCE_SAMPLES  = 3;  // 約150ms
-constexpr uint8_t FAULT_CLEAR_DEBOUNCE_SAMPLES = 10; // 約500ms
+// 注意: 「約Xms」はSENSOR_READ_INTERVAL_MS(50ms)周期で1サンプル進む前提の値だが、
+// 実際にはsensors.read()内のMPX5700読み取りが約200msブロッキングするため、
+// controller.update()(=1サンプル)は実質50msではなく約200ms周期でしか進まない。
+// そのため実時間はこのコメントの約4倍(TRIP≈600ms、CLEAR≈2000ms)になる。
+// 判定ロジック自体は連続サンプル数ベースなので安全性には影響しないが、
+// sensors.read()のブロッキングを別途解消した場合はこのコメントも再導出が必要。
+constexpr uint8_t FAULT_TRIP_DEBOUNCE_SAMPLES  = 3;  // 約150ms(理論値。実際は約600ms、上記注意参照)
+constexpr uint8_t FAULT_CLEAR_DEBOUNCE_SAMPLES = 10; // 約500ms(理論値。実際は約2000ms、上記注意参照)
 
 // ============================================================
 // BLE (Peripheral) 関連
