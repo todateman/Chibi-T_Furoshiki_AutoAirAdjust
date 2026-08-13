@@ -56,7 +56,7 @@ SensorSample PressureSensors::readPrimary() {
   float kpa = primarySensor_.getPressureValue_kpa(0);
   if (!inRange(kpa, SENSOR_RANGE_PRIMARY_KPA_MIN, SENSOR_RANGE_PRIMARY_KPA_MAX)) return s;
 
-  s.value = kpa / 1000.0f;
+  s.value = kpa / 1000.0f - 101.325f / 1000.0f;  // 大気圧補正(101.325kPa=0.101325MPa)
   s.valid = true;
   return s;
 }
@@ -71,7 +71,7 @@ SensorSample PressureSensors::readSecondary() {
   float kpa = secondarySensor_.getPressureValue_kpa(0);
   if (!inRange(kpa, SENSOR_RANGE_SECONDARY_KPA_MIN, SENSOR_RANGE_SECONDARY_KPA_MAX)) return s;
 
-  s.value = kpa / 1000.0f;
+  s.value = kpa / 1000.0f - 101.325f / 1000.0f;  // 大気圧補正(101.325kPa=0.101325MPa)
   s.valid = true;
   return s;
 }
