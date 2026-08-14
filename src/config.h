@@ -140,3 +140,14 @@ constexpr const char* BLE_SERVICE_UUID = "7c44181A-c1a4-4635-a119-b490ed272552";
 constexpr const char* BLE_DUMMY_CHAR_UUID = "c9f878f1-c311-4452-ae5e-e813b4fe057d";
 // センサ値Notify用Characteristic(実データ送信専用)
 constexpr const char* BLE_NOTIFY_CHAR_UUID = "1d25ec49-e19c-4bb6-8c36-5dc8d8aaaebe";
+
+// ============================================================
+// OTA (Wi-Fi AP経由ブラウザアップロード) 関連
+// ============================================================
+// 起動時にBボタンを押した状態で電源を入れると、通常運転(センサ・コントローラ・BLE)を
+// 一切開始せずWi-Fi APを起動し、ブラウザ経由でファームウェア(.bin)を書き込めるモードへ遷移する
+// (src/ota_service.h/.cpp参照)。ESP32 Arduino core標準のWiFi.h/WebServer.h/Update.hのみを使用し、
+// 外部OTAライブラリ(lib_deps)は追加しない。
+constexpr const char* OTA_AP_SSID     = "ChibiT-OTA";  // Wi-Fi AP SSID
+constexpr const char* OTA_AP_PASSWORD = "chibit-ota";  // Wi-Fi APパスワード(WPA2は8文字以上必須。運用時は変更を推奨)
+constexpr uint16_t    OTA_HTTP_PORT   = 80;             // アップロード用WebServerのポート

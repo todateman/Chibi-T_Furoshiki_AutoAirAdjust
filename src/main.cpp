@@ -7,6 +7,7 @@
 #include "display_ui.h"
 #include "ble_service.h"
 #include "secondary_target_store.h"
+#include "ota_service.h"
 
 namespace {
 
@@ -30,6 +31,18 @@ void setup() {
   M5.begin(cfg);
   Serial.begin(115200);
   delay(100);
+
+  // OTAモード判定: M5.update()を呼ばないとBtn*の状態が更新されないため、
+  // 他モジュールの初期化より前に必ず1回呼ぶ。起動時にBボタンが押されていれば、
+  // 通常運転(センサ・コントローラ・BLE等)を一切開始せずWi-Fi AP経由のOTA更新モードへ遷移する。
+  // OtaService::run()はブロッキングで、更新成功時はESP.restart()するため戻らない
+  // (失敗時もAP/サーバーを維持したまま再アップロード待機を続け、setup()には戻らない)。
+  M5.update();
+  if (M5.BtnB.isPressed()) {
+    Serial.println("[BOOT] BtnB held at startup -> entering OTA update mode (normal boot skipped)");
+    OtaService otaService;
+    otaService.run();
+  }
 
   Serial.println("[BOOT] Chibi-T_Furoshiki_AutoAirAdjust starting...");
 

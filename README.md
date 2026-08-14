@@ -91,6 +91,7 @@ src/
 ├── display_ui.h/.cpp        # M5Core2 LCDへのリアルタイム表示（BLE接続状態表示を含む）
 ├── ble_service.h/.cpp       # BLE PeripheralによるセンサデータNotify送信・接続状態管理
 ├── secondary_target_store.h/.cpp # 目標2次側空気圧の実行時保持・ボタン調整・NVS(Preferences)への永続化
+├── ota_service.h/.cpp       # 起動時Bボタン押下で突入するWi-Fi AP経由ブラウザアップロードOTA更新モード
 └── main.cpp                 # setup()/loop()、各モジュールの統合とシリアルログ出力
 ```
 
@@ -131,6 +132,42 @@ M5NanoC6はさらにI2C経由でM5Stack Basicへ中継します。
 | センサ値Notify用Characteristic | `1d25ec49-e19c-4bb6-8c36-5dc8d8aaaebe` |
 
 UUID・デバイス名・送信周期を変更する場合は [`src/config.h`](src/config.h) の `BLE_*` 定数を編集してください。
+
+## OTAアップデート（Wi-Fi AP経由ブラウザアップロード）
+
+PCとUSBシリアル接続しなくても、Wi-Fi経由でファームウェアを書き換えられるOTA（Over-The-Air）アップデートモードを搭載しています。  
+ESP32 Arduino core標準の`WiFi.h`/`WebServer.h`/`Update.h`のみで実装しており、外部ライブラリの追加はありません（`src/ota_service.h/.cpp`）。
+
+### 起動手順
+
+1. **電源を入れる前に**Bボタンを押した状態にする（M5Core2は画面下部の仮想タッチボタン、M5Stack Basicは物理ボタン）。
+2. Bボタンを押したまま電源を投入（またはリセット）すると、通常運転（センサ監視・バルブ制御・BLE通信）を一切開始せず、OTA更新モードへ遷移する。
+3. LCDに `OTA UPDATE MODE` と、接続すべきWi-Fi APのSSID・パスワード・アクセス先URLが表示される。
+
+| 項目 | 値 |
+| --- | --- |
+| SSID | `ChibiT-OTA` |
+| パスワード | `chibit-ota` |
+| アクセスURL | `http://192.168.4.1/` |
+
+SSID・パスワードは [`src/config.h`](src/config.h) の `OTA_AP_SSID` / `OTA_AP_PASSWORD` で変更できます。
+
+### アップデート手順
+
+1. PCまたはスマートフォンから上記Wi-Fi APに接続する。
+2. ブラウザで `http://192.168.4.1/` を開く。
+3. `pio run -e m5stack-core2`（または`m5stack-basic`）でビルドした `.pio/build/<env>/firmware.bin` を選択し、「Upload」を押す。
+4. LCDにアップロード進捗（0〜100%）が表示され、完了すると成功（緑背景）または失敗（赤背景、失敗理由付き）が表示される。
+5. 成功時は自動的に再起動し、通常運転（P1/P2/Fuelゲージ画面）に戻る。
+6. 失敗時は自動再起動せず、Wi-Fi AP・アップロードフォームを維持したまま再アップロードを受け付ける（電源を切らない限りOTAモードに留まる）。
+
+Bボタンを押さずに通常どおり電源を入れれば、これまでどおり通常運転で起動します。
+
+### 対応環境と注意事項
+
+- `m5stack-core2` / `m5stack-basic` の両環境ともOTA2スロット構成のパーティションテーブル（`default_16MB.csv`、[`platformio.ini`](platformio.ini)参照）を使用しており、OTAアップデートモードに対応しています。
+- 本機能に認証機構は無いため、Wi-Fi APのパスワードを知る第三者が稼働中に任意の`.bin`を書き込める状態になります。アップロード完了後は速やかにOTAモードを終了（電源再投入）することを推奨します。
+- OTAモード中はソレノイドバルブの駆動ピンを常時LOW（閉）に固定しており、通常運転の制御ロジックには一切入りません。
 
 ## 使用ライブラリ（`platformio.ini` の `lib_deps`）
 
