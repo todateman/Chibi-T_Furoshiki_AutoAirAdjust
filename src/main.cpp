@@ -24,24 +24,119 @@ SensorReadings latestReadings;
 SystemState lastLoggedState = SystemState::Init;
 bool lastLoggedValve = false;
 
+// 起動時のOTAホールド確認中のみ表示する簡易UI。ota_service.cppの描画スタイル
+// (M5.Displayへ直接描画、TFT_BLACK背景、setTextSize(2)見出し+setTextSize(1)詳細、
+//  barX/barY/barW/barHの進捗バー座標)に合わせる。タッチ検出直後に一度だけ呼び、
+// 以後はdrawOtaHoldProgress()で進捗バーのみ更新する。OTAモードに確定した場合は
+// この直後にOtaService::run()内のdrawIdleScreen()が画面全体を上書きするため、
+// 凝った画面引き継ぎ処理は不要(fillScreenで単純に上書きされる)。
+void drawOtaHoldPrompt() {
+  M5.Display.fillScreen(TFT_BLACK);
+  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+  M5.Display.setTextSize(2);
+  M5.Display.setCursor(8, 8);
+  M5.Display.println("Hold to enter OTA...");
+  M5.Display.setTextSize(1);
+  M5.Display.setCursor(8, 40);
+  M5.Display.println("Keep touching BtnB area.");
+  M5.Display.println("Release to boot normally.");
+}
+
+// heldMs: 現在の連続押下継続時間(ms), thresholdMs: 確定に必要な時間(OTA_HOLD_CONFIRM_MS)
+// ota_service.cpp::drawProgress()と同じバー座標・配色を使い、OTAモード突入後の
+// アップロード進捗表示との視覚的な連続性を持たせる。
+void drawOtaHoldProgress(uint32_t heldMs, uint32_t thresholdMs) {
+  static uint8_t lastDrawnPercent = 255;  // 再描画間引き用(OtaService::drawProgress()と同じ手法)
+  uint32_t clamped = min(heldMs, thresholdMs);
+  uint8_t percent = static_cast<uint8_t>((100ULL * clamped) / thresholdMs);
+  if (percent == lastDrawnPercent) return;
+  lastDrawnPercent = percent;
+
+  const int barX = 8, barY = 160, barW = 304, barH = 20;
+  M5.Display.setTextSize(2);
+  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+  M5.Display.fillRect(0, 140, 320, 40, TFT_BLACK);
+  M5.Display.setCursor(barX, 140);
+  M5.Display.printf("Hold... %3u%%", percent);
+
+  M5.Display.drawRect(barX, barY, barW, barH, TFT_WHITE);
+  int fillW = (barW - 2) * percent / 100;
+  M5.Display.fillRect(barX + 1, barY + 1, max(0, fillW), barH - 2, TFT_CYAN);
+}
+
 }  // namespace
 
 void setup() {
   auto cfg = M5.config();
   M5.begin(cfg);
+
+  // M5UnifiedのBtnA/BtnB/BtnCは既定でタッチボタン判定領域の高さが0のため、これを呼ばないと
+  // 画面のほぼどこを押しても反応しない(config.h::TOUCH_BUTTON_ZONE_HEIGHT_PX参照)。
+  // 以降のBtn*.isPressed()等が意味を持つように、他の判定より前に必ず設定する。
+  M5.setTouchButtonHeight(TOUCH_BUTTON_ZONE_HEIGHT_PX);
+
   Serial.begin(115200);
   delay(100);
 
   // OTAモード判定: M5.update()を呼ばないとBtn*の状態が更新されないため、
-  // 他モジュールの初期化より前に必ず1回呼ぶ。起動時にBボタンが押されていれば、
-  // 通常運転(センサ・コントローラ・BLE等)を一切開始せずWi-Fi AP経由のOTA更新モードへ遷移する。
+  // 他モジュールの初期化より前に必ず呼ぶ。BtnBはM5Core2の物理ボタンではなく静電容量式
+  // タッチパネルの仮想ゾーンで、実機検証の結果、以下がわかった:
+  //   - 「電源投入前から指を触れたままにする」操作方式は機能しない。タッチIC(FT6336系)は
+  //     電源投入直後に無接触状態を自己校正するため、その瞬間に指が触れているとその状態自体を
+  //     「無接触」の基準点として学習してしまい、指を離して再度触れるまで検出できなくなる
+  //     (コードの問題ではなくタッチIC側の既知の挙動で、ポーリング時間を延ばしても解決しない)。
+  //   - 「電源投入後にBボタンへ触れてホールドする」操作方式なら確実に検出できる(実機確認済み)。
+  // そのため運用手順は「電源投入 → その後BボタンをOTA_HOLD_CONFIRM_MS以上ホールド」に統一し、
+  // 電源投入直後の反応時間を確保するためOTA_ENTRY_DETECT_MSの間入口判定をポーリングする。
+  // 一度でも押下を検出できたらOTA_HOLD_CONFIRM_MS以上の継続押下(ホールド)を確認するフェーズへ
+  // 移行し、押下が一度も検出されなければ通常起動へ進む(この待ち時間だけ通常起動も一律遅延するが、
+  // タッチ検出の確実性を優先する)。
+  //
+  // NOTE: BtnBのwasHold()/isHolding()/setHoldThresh()はloop()内の「長押しでNVS保存」機能
+  // (BtnB共有の内部しきい値_msecHold、既定500ms)と競合するためここでは使わず、
+  // pressedFor()に明示的な閾値を渡してBtnBの内部状態には触れない設計にする。
+  //
   // OtaService::run()はブロッキングで、更新成功時はESP.restart()するため戻らない
   // (失敗時もAP/サーバーを維持したまま再アップロード待機を続け、setup()には戻らない)。
-  M5.update();
-  if (M5.BtnB.isPressed()) {
-    Serial.println("[BOOT] BtnB held at startup -> entering OTA update mode (normal boot skipped)");
-    OtaService otaService;
-    otaService.run();
+  bool touchDetected = false;
+  uint32_t entryStartMs = millis();
+  do {
+    M5.update();
+    if (M5.BtnB.isPressed()) {
+      touchDetected = true;
+      break;
+    }
+    delay(OTA_HOLD_POLL_INTERVAL_MS);
+  } while (millis() - entryStartMs < OTA_ENTRY_DETECT_MS);
+
+  if (touchDetected) {
+    Serial.println("[BOOT] BtnB press detected -> confirming hold before entering OTA mode...");
+    drawOtaHoldPrompt();
+
+    bool otaConfirmed = false;
+    for (;;) {
+      delay(OTA_HOLD_POLL_INTERVAL_MS);
+      M5.update();
+
+      if (M5.BtnB.wasReleased()) {
+        Serial.println("[BOOT] BtnB released before hold threshold -> normal boot");
+        break;
+      }
+
+      uint32_t heldMs = millis() - M5.BtnB.lastChange();
+      drawOtaHoldProgress(heldMs, OTA_HOLD_CONFIRM_MS);
+
+      if (M5.BtnB.pressedFor(OTA_HOLD_CONFIRM_MS)) {
+        otaConfirmed = true;
+        break;
+      }
+    }
+
+    if (otaConfirmed) {
+      Serial.println("[BOOT] BtnB held >= OTA_HOLD_CONFIRM_MS -> entering OTA update mode (normal boot skipped)");
+      OtaService otaService;
+      otaService.run();
+    }
   }
 
   Serial.println("[BOOT] Chibi-T_Furoshiki_AutoAirAdjust starting...");

@@ -144,10 +144,32 @@ constexpr const char* BLE_NOTIFY_CHAR_UUID = "1d25ec49-e19c-4bb6-8c36-5dc8d8aaae
 // ============================================================
 // OTA (Wi-Fi AP経由ブラウザアップロード) 関連
 // ============================================================
-// 起動時にBボタンを押した状態で電源を入れると、通常運転(センサ・コントローラ・BLE)を
+// 電源投入後にBボタンをOTA_HOLD_CONFIRM_MS以上ホールドすると、通常運転(センサ・コントローラ・BLE)を
 // 一切開始せずWi-Fi APを起動し、ブラウザ経由でファームウェア(.bin)を書き込めるモードへ遷移する
 // (src/ota_service.h/.cpp参照)。ESP32 Arduino core標準のWiFi.h/WebServer.h/Update.hのみを使用し、
 // 外部OTAライブラリ(lib_deps)は追加しない。
+// NOTE: 「電源投入前から指を触れたままにする」操作方式は使えない。タッチIC(FT6336系)は電源投入直後に
+// 無接触状態を自己校正するため、その瞬間に指が触れているとその状態自体を基準点として学習してしまい、
+// 指を離して再度触れるまで検出できなくなる(実機検証で確認済み)。必ず電源投入"後"に触れること。
 constexpr const char* OTA_AP_SSID     = "ChibiT-OTA";  // Wi-Fi AP SSID
 constexpr const char* OTA_AP_PASSWORD = "chibit-ota";  // Wi-Fi APパスワード(WPA2は8文字以上必須。運用時は変更を推奨)
 constexpr uint16_t    OTA_HTTP_PORT   = 80;             // アップロード用WebServerのポート
+
+// M5UnifiedのBtnA/BtnB/BtnCはタッチパネル上の「画面下端からこの高さ(px)以内」の
+// タッチだけを仮想ボタンとして扱う(M5Unified.cpp::update()参照)。この値は既定0で、
+// setTouchButtonHeight()を呼ばない限りボタン判定領域が実質存在しない(=画面のほぼどこを
+// 押しても反応しない)ため、setup()の最初に必ず設定すること。DisplayUI側の警告表示領域
+// (kWarningH=45px、display_ui.cpp)と高さを合わせ、画面下端45pxをボタン領域とする。
+constexpr uint16_t TOUCH_BUTTON_ZONE_HEIGHT_PX = 45;
+
+// 起動時ホールド確認(OTAモード誤突入防止・タッチ感度対策)
+// M5Core2のBtnA/B/Cは物理ボタンではなく静電容量式タッチパネルの仮想ゾーンのため、
+// 起動直後の一発判定だけでは検出漏れ・誤検出が起きやすい。一定時間の継続押下を
+// 確認してからOTAモードへ確定突入することで感度対策と誤操作防止を両立する(src/main.cpp参照)。
+constexpr uint32_t OTA_HOLD_CONFIRM_MS       = 3000; // この時間以上BtnBを押し続けたらOTAモードへ確定突入
+constexpr uint32_t OTA_HOLD_POLL_INTERVAL_MS = 20;  // ホールド判定ループのポーリング間隔(M5UnifiedのButton_Class既定デバウンス閾値10msの約2倍)
+// 1回のisPressed()判定だけでは、電源投入後にユーザーがBボタンへ指を運ぶ反応時間を確保できない。
+// そのため入口判定自体もこの時間ポーリングし、一度でも押下を検出できたらホールド確認へ移行する。
+// この時間は「触っていない」通常起動時にも一律で待つことになるため、体感に影響しない範囲で
+// 余裕を持たせている(実機検証: 500msでは反応が間に合わないケースがあったため1500msに調整)。
+constexpr uint32_t OTA_ENTRY_DETECT_MS       = 1500;

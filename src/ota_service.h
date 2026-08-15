@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <WebServer.h>
 
-// 起動時Bボタン押下でのみ突入する、Wi-Fi AP経由ブラウザアップロード方式のOTA更新モード。
+// 電源投入後にBボタンを一定時間ホールドした場合のみ突入する、Wi-Fi AP経由ブラウザアップロード方式のOTA更新モード。
 // main.cpp::setup()の先頭付近から一度だけrun()を呼び出す。
 //
 // 通常運転系(PressureSensors/Controller/DisplayUI/BleService/SecondaryTargetStore)には
