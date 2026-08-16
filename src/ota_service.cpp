@@ -128,11 +128,11 @@ void OtaService::handleUpdatePost() {
 void OtaService::drawIdleScreen() {
   M5.Display.fillScreen(TFT_BLACK);
   M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  M5.Display.setTextSize(2);
+  M5.Display.setTextSize(3);
   M5.Display.setCursor(8, 8);
   M5.Display.println("OTA UPDATE MODE");
-  M5.Display.setTextSize(1);
-  M5.Display.setCursor(8, 40);
+  M5.Display.setTextSize(1.5);
+  M5.Display.setCursor(0, 40);
   M5.Display.printf("1. Connect Wi-Fi\n   SSID: %s\n   PASS: %s\n\n", OTA_AP_SSID, OTA_AP_PASSWORD);
   M5.Display.printf("2. Open browser\n   http://%s/\n\n", WiFi.softAPIP().toString().c_str());
   M5.Display.println("3. Select .bin and Upload");

@@ -57,23 +57,19 @@ constexpr uint8_t MEAN_SAMPLE_SIZE_MPX5700   = 30;   // DFRobotライブラリ�
 // ADS1015は連続変換モードでバックグラウンド駆動し、read()呼び出し(SENSOR_READ_INTERVAL_MS周期)ごとに
 // 最新変換結果を1個だけ非ブロッキング取得してリングバッファに積む(移動平均バッファ深さ)。
 // そのため実効窓幅は 約 ADS1015_OVERSAMPLE_COUNT × SENSOR_READ_INTERVAL_MS(既定値では約200ms)に伸びる。
-// 旧実装(readADC_SingleEndedを4回連続ブロッキング呼び出し、数ms未満で完結)より窓が広がるため、
-// FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS(フローティング検出の許容ばらつき)は実機再チューニングが必要な場合がある。
 constexpr uint8_t ADS1015_OVERSAMPLE_COUNT   = 4;    // 移動平均バッファ深さ(サンプル数)
 constexpr adsGain_t FUEL_ADS_GAIN            = GAIN_ONE; // ±4.096V, 12bit
-// 実機計測(2026-08-11): バルブ切替直後にspreadが最大177まで跳ね上がり、約2秒(約10サンプル)かけて
-// 減衰するノイズ相関を確認(診断ログ[FUEL_ADC] spread=... 参照)。旧閾値20ではこの正常な
-// バルブ動作起因の揺れを毎回センサ未接続と誤検知していたため、観測ピーク(177)に余裕を持たせて
-// 250へ引き上げる。要実機再確認: 燃圧センサーを物理的に切断した状態でSensorError(FUEL)が
-// 引き続き正しく検出されることを確認してから確定すること(誤検知緩和のため感度を落としすぎていないか)。
-constexpr int16_t FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS = 250; // フローティング(センサ未接続)検出用の許容ばらつき(LSB)
 
 // 燃圧センサ: 0.5-4.5V ⇔ 0-1.0MPa の線形変換
 constexpr float FUEL_SENSOR_V_AT_0MPA   = 0.5f; // 0MPa時の電圧
 constexpr float FUEL_SENSOR_V_AT_FULL   = 4.5f; // 1.0MPa時の電圧
 constexpr float FUEL_SENSOR_MPA_AT_FULL = 1.0f; // 1.0MPa時の圧力
 // 基板上に分圧抵抗が存在する場合のみ1.0未満に変更する(要ハード確認)
-// 恒久的な未接続検出にはAIN0への物理的なプルダウン/プルアップ抵抗追加が望ましい(要基板改版)
+// PCB改版(rev1.03)でAIN0にプルダウン抵抗(R10, 100kΩ)を追加済み。これによりセンサ未接続時の
+// AIN0は0V付近に安定して引き下げられる(0V換算で約-0.125MPa)ため、断線検出は
+// pressure_sensors.cpp::readFuel()内のレンジ判定(SENSOR_RANGE_FUEL_MPA_MIN/MAX)のみで行う
+// (旧: ADCサンプル間スプレッド判定。フローティング入力のノイズ挙動に依存した間接検出だったが、
+//  プルダウン追加により入力電圧が確定するため不要になった)。
 constexpr float FUEL_SENSOR_DIVIDER_RATIO = 1.0f;
 
 // センサ有効レンジ(異常検知用、定格に余裕を持たせた範囲)

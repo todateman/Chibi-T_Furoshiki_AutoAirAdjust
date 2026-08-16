@@ -25,7 +25,7 @@ SystemState lastLoggedState = SystemState::Init;
 bool lastLoggedValve = false;
 
 // 起動時のOTAホールド確認中のみ表示する簡易UI。ota_service.cppの描画スタイル
-// (M5.Displayへ直接描画、TFT_BLACK背景、setTextSize(2)見出し+setTextSize(1)詳細、
+// (M5.Displayへ直接描画、TFT_BLACK背景、setTextSize(3)見出し+setTextSize(1.5)詳細、
 //  barX/barY/barW/barHの進捗バー座標)に合わせる。タッチ検出直後に一度だけ呼び、
 // 以後はdrawOtaHoldProgress()で進捗バーのみ更新する。OTAモードに確定した場合は
 // この直後にOtaService::run()内のdrawIdleScreen()が画面全体を上書きするため、
@@ -33,10 +33,10 @@ bool lastLoggedValve = false;
 void drawOtaHoldPrompt() {
   M5.Display.fillScreen(TFT_BLACK);
   M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  M5.Display.setTextSize(2);
+  M5.Display.setTextSize(3);
   M5.Display.setCursor(8, 8);
   M5.Display.println("Hold to enter OTA...");
-  M5.Display.setTextSize(1);
+  M5.Display.setTextSize(1.5);
   M5.Display.setCursor(8, 40);
   M5.Display.println("Keep touching BtnB area.");
   M5.Display.println("Release to boot normally.");

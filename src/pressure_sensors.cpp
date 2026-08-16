@@ -89,20 +89,8 @@ SensorSample PressureSensors::readFuel() {
   if (fuelSampleFilled_ < ADS1015_OVERSAMPLE_COUNT) return s; // 起動直後、バッファが埋まるまでは無効値
 
   int32_t sum = 0;
-  int16_t sampleMin = INT16_MAX;
-  int16_t sampleMax = INT16_MIN;
   for (uint8_t i = 0; i < ADS1015_OVERSAMPLE_COUNT; i++) {
-    int16_t raw = fuelSampleBuffer_[i];
-    sum += raw;
-    sampleMin = min(sampleMin, raw);
-    sampleMax = max(sampleMax, raw);
-  }
-  // サンプル間のばらつきが大きい場合、AIN0がフローティング(センサ未接続)と判断し無効として返す
-  if ((sampleMax - sampleMin) > FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS) {
-    // 診断用: FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS(暫定値)の実機再チューニング用データ収集。
-    // [VALVE] OPEN/CLOSEログとの時刻相関を見て、バルブ切替時のノイズ起因か切り分ける。
-    Serial.printf("[FUEL_ADC] spread=%d (threshold=%d)\n", sampleMax - sampleMin, FUEL_ADC_MAX_SAMPLE_SPREAD_COUNTS);
-    return s;
+    sum += fuelSampleBuffer_[i];
   }
   // 平均値を計算し、電圧に変換する
   int16_t rawAvg = static_cast<int16_t>(sum / ADS1015_OVERSAMPLE_COUNT);
@@ -110,7 +98,11 @@ SensorSample PressureSensors::readFuel() {
   float vSensor = vAtPin / FUEL_SENSOR_DIVIDER_RATIO;
   float mpa = (vSensor - FUEL_SENSOR_V_AT_0MPA) *
               (FUEL_SENSOR_MPA_AT_FULL / (FUEL_SENSOR_V_AT_FULL - FUEL_SENSOR_V_AT_0MPA));
-  if (!inRange(mpa, SENSOR_RANGE_FUEL_MPA_MIN, SENSOR_RANGE_FUEL_MPA_MAX)) return s;  // 異常値は無効として返す
+  // AIN0はPCB改版でプルダウン抵抗(R10, 100kΩ)を追加済みのため、センサ未接続時は0V付近に
+  // 安定して引き下げられる(0V換算で約-0.125MPa)。よってフローティング検出用の特別な
+  // ロジック(旧: ADCサンプル間スプレッド判定)は不要で、他の異常値と同じレンジ判定だけで
+  // 断線を確実に検出できる。
+  if (!inRange(mpa, SENSOR_RANGE_FUEL_MPA_MIN, SENSOR_RANGE_FUEL_MPA_MAX)) return s;  // 異常値(断線含む)は無効として返す
 
   s.value = mpa;
   s.valid = true;
