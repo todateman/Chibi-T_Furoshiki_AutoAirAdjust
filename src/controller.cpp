@@ -7,6 +7,8 @@ void Controller::begin(uint32_t now) {
   state_ = SystemState::Init;
   faultReason_ = FaultReason::None;
   currentPulseWidthMs_ = PULSE_WIDTH_MIN_MS;
+  pulseStartValid_ = false;
+  lastPulseResultValid_ = false;
 }
 
 // 目標帯下限を下回った場合にソレノイドをパルス駆動するが、
@@ -39,6 +41,7 @@ void Controller::enterFault(FaultReason reason) {
   tripStreak_ = 0;
   clearStreak_ = 0;
   currentPulseWidthMs_ = PULSE_WIDTH_MIN_MS; // フォルト復帰後は安全側(最小)から再学習させる
+  pulseStartValid_ = false; // Cooldown/PulseOpen中にフォルトへ落ちた場合の開始圧力記録を無効化
 }
 
 // 直近1回のパルス駆動の結果(パルス+クールダウン後の2次側空気圧)を見て、
@@ -106,7 +109,10 @@ void Controller::update(uint32_t now, const SensorReadings& r, const SecondaryTa
     case SystemState::Normal:
       if (r.secondaryMpa.value < secondaryTarget.lower) {
         if (pulseEpisodeStartMs_ == 0) pulseEpisodeStartMs_ = now;
+        pulseStartSecondaryMpa_ = r.secondaryMpa.value; // ΔPログ用: パルス開始直前の2次側圧力を記録
+        pulseStartValid_ = true;
         valve_.trigger(now, static_cast<uint32_t>(currentPulseWidthMs_));
+        lastPulseWidthMs_ = currentPulseWidthMs_; // adjustPulseWidth()で上書きされる前に今回のパルス幅を退避
         state_ = SystemState::PulseOpen;
       } else {
         pulseEpisodeStartMs_ = 0; // 目標帯内 or 上限超過なら連続区間の計測をリセット
@@ -122,6 +128,13 @@ void Controller::update(uint32_t now, const SensorReadings& r, const SecondaryTa
     // パルス駆動終了後は、パルス間の休止時間が経過するまで待機する
     case SystemState::Cooldown:
       if (now - cooldownStartMs_ >= PULSE_COOLDOWN_MS) {
+        if (pulseStartValid_) { // 通常は必ずtrue。フォルト遷移等の異常経路のみのガード
+          lastPulseBeforeMpa_ = pulseStartSecondaryMpa_;
+          lastPulseAfterMpa_ = r.secondaryMpa.value;
+          lastPulseDeltaMpa_ = lastPulseAfterMpa_ - lastPulseBeforeMpa_;
+          lastPulseResultValid_ = true;
+          pulseStartValid_ = false;
+        }
         adjustPulseWidth(r, secondaryTarget); // 直近パルスの結果を見て次回幅を自己適応
         state_ = SystemState::Normal;         // 次周期で再判定
       }

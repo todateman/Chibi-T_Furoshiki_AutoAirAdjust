@@ -110,7 +110,7 @@ constexpr uint32_t MAX_REGULATION_EPISODE_MS = 5000; // 連続パルスの上限
 // ============================================================
 // 安全保護しきい値 (ヒステリシス付き, 単位: MPa)
 // ============================================================
-constexpr float PRIMARY_SUPPLY_LOW_TRIP_MPA  = 0.40f; // これを下回ったら供給不能
+constexpr float PRIMARY_SUPPLY_LOW_TRIP_MPA  = 0.35f; // これを下回ったら供給不能
 constexpr float PRIMARY_SUPPLY_LOW_CLEAR_MPA = 0.43f; // これを上回ったら供給可能
 
 constexpr float OVERPRESSURE_TRIP_MPA  = 0.50f; // 燃圧・2次側の過圧しきい値(多重防御。制御量ではなく安全判定にのみ使用)

@@ -210,6 +210,14 @@ void loop() {
           Serial.printf("[FAULT] ENTER reason=%s\n", faultReasonLabel(status.faultReason));
         }
       }
+      // Cooldown -> Normal遷移時、直近パルスのΔP(圧力上昇幅)をログ出力
+      // (小口径バルブ交換・バッファチャンバー等のハード対策の効果を実機で定量比較するため)
+      if (lastLoggedState == SystemState::Cooldown && status.state == SystemState::Normal &&
+          controller.lastPulseResultValid()) {
+        Serial.printf("[PULSE] width=%.0fms delta=%+.3fMPa (before=%.3f after=%.3f)\n",
+                      controller.lastPulseWidthMs(), controller.lastPulseDeltaMpa(),
+                      controller.lastPulseBeforeMpa(), controller.lastPulseAfterMpa());
+      }
       lastLoggedState = status.state;
     }
 
