@@ -16,13 +16,17 @@ void ValveDriver::begin() {
 // 指定幅のパルスを開始する。閉弁はesp_timerのワンショットタイマーで正確に行われる。
 // (update()はタイマーが機能しなかった場合の保険として引き続き呼んでおくこと)
 void ValveDriver::trigger(uint32_t now, uint32_t widthMs) {
+  triggerUs(now, widthMs * 1000U);
+}
+
+void ValveDriver::triggerUs(uint32_t now, uint32_t widthUs) {
   digitalWrite(SOLENOID_PIN, HIGH);
   pulsing_ = true;
   pulseStartMs_ = now;
-  pulseWidthMs_ = widthMs;
+  pulseWidthMs_ = (widthUs + 999U) / 1000U; // 保険のポーリング判定用(切り上げ。1ms刻みの幅なら従来と同じ値)
 
   esp_timer_stop(closeTimer_); // 前回分が万一残っていれば念のためキャンセル
-  esp_timer_start_once(closeTimer_, static_cast<uint64_t>(widthMs) * 1000ULL); // ms -> us
+  esp_timer_start_once(closeTimer_, static_cast<uint64_t>(widthUs));
 }
 
 // esp_timerのコールバック(専用タスクコンテキストで実行される。digitalWrite()呼び出し可)

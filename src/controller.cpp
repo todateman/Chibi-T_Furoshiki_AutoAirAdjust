@@ -1,6 +1,14 @@
 #include "controller.h"
 #include "config.h"
 
+// 特性測定ビルド(CHARACTERIZE_MODE)では、目標帯下限を下回っても自動でパルスを出さない。
+// パルスはtestPulse()で指令したものだけになる(パルス幅ごとの特性を切り分けて測るため)。
+#ifdef CHARACTERIZE_MODE
+constexpr bool kAutoPulseEnabled = false;
+#else
+constexpr bool kAutoPulseEnabled = true;
+#endif
+
 void Controller::begin(uint32_t now) {
   (void)now;
   valve_.begin();
@@ -107,7 +115,7 @@ void Controller::update(uint32_t now, const SensorReadings& r, const SecondaryTa
       break;
     // 正常状態では、2次側空気圧が目標帯下限を下回った場合にソレノイドをパルス駆動する
     case SystemState::Normal:
-      if (r.secondaryMpa.value < secondaryTarget.lower) {
+      if (kAutoPulseEnabled && r.secondaryMpa.value < secondaryTarget.lower) {
         if (pulseEpisodeStartMs_ == 0) pulseEpisodeStartMs_ = now;
         pulseStartSecondaryMpa_ = r.secondaryMpa.value; // ΔPログ用: パルス開始直前の2次側圧力を記録
         pulseStartValid_ = true;
@@ -150,3 +158,20 @@ void Controller::update(uint32_t now, const SensorReadings& r, const SecondaryTa
     enterFault(FaultReason::RegulationTimeout);
   }
 }
+
+#ifdef CHARACTERIZE_MODE
+const char* Controller::testPulse(uint32_t now, uint32_t widthUs, const SensorReadings& r) {
+  if (state_ != SystemState::Normal) return "state is not NORMAL";
+  if (!r.allValid()) return "sensor invalid";
+  if (widthUs < 100 || widthUs > PULSE_WIDTH_MAX_MS * 1000U) return "width out of range";
+  if (r.secondaryMpa.value > SECONDARY_TARGET_MAX_MPA) return "P2 above SECONDARY_TARGET_MAX_MPA";
+
+  pulseStartSecondaryMpa_ = r.secondaryMpa.value;
+  pulseStartValid_ = true;
+  currentPulseWidthMs_ = static_cast<float>(widthUs) / 1000.0f; // [VALVE]ログに指令幅を出すため
+  lastPulseWidthMs_ = currentPulseWidthMs_;
+  valve_.triggerUs(now, widthUs);
+  state_ = SystemState::PulseOpen;
+  return nullptr;
+}
+#endif

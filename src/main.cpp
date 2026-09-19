@@ -64,6 +64,46 @@ void drawOtaHoldProgress(uint32_t heldMs, uint32_t thresholdMs) {
   M5.Display.fillRect(barX + 1, barY + 1, max(0, fillW), barH - 2, TFT_CYAN);
 }
 
+#ifdef CHARACTERIZE_MODE
+// 特性測定ビルド専用: Serialから "P<ms>\n"(例: "P8")または "U<us>\n"(例: "U3600"、マイクロ秒指定)で
+// 単発パルスを指令する。
+// パルス後 TEST_LOG_DURATION_MS の間、センサ読み取りごとにP2を[TEST]ログに出し、
+// ファーム側から見たP2の追従(移動平均窓の遅れ)をオシロの実波形と突き合わせられるようにする。
+constexpr uint32_t TEST_LOG_DURATION_MS = 1500;
+uint32_t testPulseStartMs = 0;
+bool testLogging = false;
+
+void handleCharacterizeSerial() {
+  static char buf[16];
+  static uint8_t len = 0;
+  while (Serial.available()) {
+    char c = static_cast<char>(Serial.read());
+    if (c == '\r' || c == '\n') {
+      char cmd = (len > 0) ? buf[0] : '\0';
+      if (cmd == 'P' || cmd == 'p' || cmd == 'U' || cmd == 'u') {
+        buf[len] = '\0';
+        uint32_t value = static_cast<uint32_t>(atoi(buf + 1));
+        uint32_t widthUs = (cmd == 'P' || cmd == 'p') ? value * 1000U : value;
+        uint32_t now = millis();
+        const char* reject = controller.testPulse(now, widthUs, latestReadings);
+        if (reject == nullptr) {
+          testPulseStartMs = now;
+          testLogging = true;
+          Serial.printf("[TEST] cmd=%luus accepted p2_before=%.3fMPa p1=%.3fMPa\n",
+                        static_cast<unsigned long>(widthUs), latestReadings.secondaryMpa.value,
+                        latestReadings.primaryMpa.value);
+        } else {
+          Serial.printf("[TEST] cmd=%luus REJECTED: %s\n", static_cast<unsigned long>(widthUs), reject);
+        }
+      }
+      len = 0;
+    } else if (len < sizeof(buf) - 1) {
+      buf[len++] = c;
+    }
+  }
+}
+#endif
+
 }  // namespace
 
 void setup() {
@@ -162,6 +202,10 @@ void loop() {
   // 最小パルス幅(PULSE_WIDTH_MIN_MS)より閉弁が遅れて過供給を招くため、毎ループ無条件で実行する
   controller.updateValve(now);
 
+#ifdef CHARACTERIZE_MODE
+  handleCharacterizeSerial();
+#endif
+
   // 目標2次側空気圧ボタン操作(取りこぼし防止のため間引き処理の外、毎ループ判定する)
   // Aボタン: -0.01MPa, Cボタン: +0.01MPa, Bボタン長押し: NVSへ保存
   if (M5.BtnA.wasClicked()) {
@@ -190,6 +234,15 @@ void loop() {
     // ブロッキング読み取り直後に時刻を再取得し、以降の状態遷移・パルストリガーの基準に使う。
     uint32_t nowAfterRead = millis();
     controller.update(nowAfterRead, latestReadings, secondaryTargetStore.info());  // コントローラー更新
+
+#ifdef CHARACTERIZE_MODE
+    if (testLogging) {
+      uint32_t elapsed = nowAfterRead - testPulseStartMs;
+      Serial.printf("[TEST] +%lums p2=%.3fMPa\n", static_cast<unsigned long>(elapsed),
+                    latestReadings.secondaryMpa.value);
+      if (elapsed >= TEST_LOG_DURATION_MS) testLogging = false;
+    }
+#endif
 
     ControllerStatus status = controller.status();      // コントローラー状態取得
     bool valveEnergized = controller.valveEnergized();  // バルブ通電状態取得

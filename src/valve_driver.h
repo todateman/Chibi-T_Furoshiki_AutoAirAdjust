@@ -21,6 +21,10 @@ class ValveDriver {
   // 閉弁は内部でesp_timerのワンショットタイマーにより正確にスケジュールされる。
   void trigger(uint32_t now, uint32_t widthMs);
 
+  // マイクロ秒単位で幅を指定する版(特性測定ビルドで、1ms刻みより細かい幅を試すために使う)。
+  // trigger()はこれを widthMs*1000 で呼ぶだけで、既存の挙動は変わらない。
+  void triggerUs(uint32_t now, uint32_t widthUs);
+
   // loop()毎回呼び出すこと。閉弁は通常esp_timerで行われるが、タイマーが機能しなかった
   // 場合の保険としてポーリングでも経過判定する(フェイルセーフの多重防御)。
   void update(uint32_t now);

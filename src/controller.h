@@ -21,6 +21,12 @@ class Controller {
   // secondaryTargetはSecondaryTargetStoreから取得した目標帯情報(下限/上限、ボタンで実行時変更される)
   void update(uint32_t now, const SensorReadings& r, const SecondaryTargetInfo& secondaryTarget);
 
+#ifdef CHARACTERIZE_MODE
+  // 特性測定ビルド専用: 指定幅(マイクロ秒)の単発パルスを出す(自動パルスは無効化されている)。
+  // 受理したらnullptr、拒否したら理由の文字列を返す。閉弁は通常と同じくValveDriverのesp_timerが行う。
+  const char* testPulse(uint32_t now, uint32_t widthUs, const SensorReadings& r);
+#endif
+
   ControllerStatus status() const { return {state_, faultReason_}; }
   bool valveEnergized() const { return valve_.isEnergized(); }
   float currentPulseWidthMs() const { return currentPulseWidthMs_; } // 実機チューニング用(Serialログ出力等)
