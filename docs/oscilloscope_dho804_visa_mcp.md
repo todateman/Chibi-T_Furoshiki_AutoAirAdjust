@@ -69,6 +69,13 @@ RIGOL TECHNOLOGIES,DHO804,DHO8A253701207,00.01.02
 書き込み系コマンド（`?`を含まないコマンド）は `send_visa_command` 内部で `instr.write()` が呼ばれ、成功すると常に文字列 `"OK"` が返る。  
 クエリ（`?`を含むコマンド）は `instr.query()` の戻り値がそのまま返る。
 
+## 測定チャネル
+
+| チャネル | 接続対象 |
+| --- | --- |
+| CH1 | ソレノイドバルブ 12V 駆動ライン<BR>（ソレノイドバルブ駆動回路が NPN なので、CH1にはソレノイドのマイナス側を接続する） |
+| CH2 | バルブ通過直後の空気圧センサのアナログ電圧<BR>（`Gravity: MPX5700AP Air Pressure Sensor` の `V0` ピン） |
+
 ## 既知の問題: `list_visa_resources` が失敗する
 
 `mcp__visa-mcp__list_visa_resources`（`rm.list_resources()` の呼び出し）は毎回下記エラーで失敗し、リソース自動列挙ができない。
