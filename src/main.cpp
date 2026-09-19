@@ -192,7 +192,7 @@ void setup() {
   displayUI.begin();
   bleService.begin();
   secondaryTargetStore.begin();
-  Serial.printf("[BOOT] P2 target = %.2fMPa (loaded from NVS or default)\n", secondaryTargetStore.target());
+  Serial.printf("[BOOT] P2 target = %.3fMPa (loaded from NVS or default)\n", secondaryTargetStore.target());
 
   Serial.println("[BOOT] setup complete");
 }
@@ -213,15 +213,15 @@ void loop() {
   // Aボタン: -0.01MPa, Cボタン: +0.01MPa, Bボタン長押し: NVSへ保存
   if (M5.BtnA.wasClicked()) {
     secondaryTargetStore.adjust(-SECONDARY_TARGET_STEP_MPA);
-    Serial.printf("[SETTINGS] P2 target -> %.2fMPa\n", secondaryTargetStore.target());
+    Serial.printf("[SETTINGS] P2 target -> %.3fMPa\n", secondaryTargetStore.target());
   }
   if (M5.BtnC.wasClicked()) {
     secondaryTargetStore.adjust(SECONDARY_TARGET_STEP_MPA);
-    Serial.printf("[SETTINGS] P2 target -> %.2fMPa\n", secondaryTargetStore.target());
+    Serial.printf("[SETTINGS] P2 target -> %.3fMPa\n", secondaryTargetStore.target());
   }
   if (M5.BtnB.wasHold()) {
     bool saved = secondaryTargetStore.save();
-    Serial.printf("[SETTINGS] P2 target %.2fMPa %s\n", secondaryTargetStore.target(),
+    Serial.printf("[SETTINGS] P2 target %.3fMPa %s\n", secondaryTargetStore.target(),
                   saved ? "SAVED to NVS" : "(no change to save)");
   }
 

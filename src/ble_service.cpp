@@ -72,15 +72,15 @@ void BleService::update(const SensorReadings& r) {
   // ここでも1種類ずつ個別にnotify()する
   char buf[32];
 
-  snprintf(buf, sizeof(buf), "PRI:%.2f\n", lastPrimaryMpa_);
+  snprintf(buf, sizeof(buf), "PRI:%.3f\n", lastPrimaryMpa_);
   notifyChar_->setValue(reinterpret_cast<uint8_t*>(buf), strlen(buf));
   notifyChar_->notify();
 
-  snprintf(buf, sizeof(buf), "SEC:%.2f\n", lastSecondaryMpa_);
+  snprintf(buf, sizeof(buf), "SEC:%.3f\n", lastSecondaryMpa_);
   notifyChar_->setValue(reinterpret_cast<uint8_t*>(buf), strlen(buf));
   notifyChar_->notify();
 
-  snprintf(buf, sizeof(buf), "FUEL:%.2f\n", lastFuelMpa_);
+  snprintf(buf, sizeof(buf), "FUEL:%.3f\n", lastFuelMpa_);
   notifyChar_->setValue(reinterpret_cast<uint8_t*>(buf), strlen(buf));
   notifyChar_->notify();
 }

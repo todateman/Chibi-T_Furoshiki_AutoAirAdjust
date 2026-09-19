@@ -30,7 +30,7 @@ void DisplayUI::drawGaugeBlock(const char* label, const SensorSample& s, uint16_
   valuesSprite_.setTextColor(color, TFT_BLACK);
   valuesSprite_.setCursor(8, y);
   if (s.valid) {
-    valuesSprite_.printf("%-5s%4.2f", label, s.value);
+    valuesSprite_.printf("%-5s%5.3f", label, s.value);
   } else {
     valuesSprite_.printf("%-5s----", label);
   }
@@ -109,8 +109,8 @@ void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valv
   // 目標2次側空気圧の数値と未保存インジケータ(Bボタン長押しで保存するまで'*'を表示)
   valuesSprite_.setTextSize(2);
   valuesSprite_.setTextColor(TFT_WHITE, TFT_BLACK);
-  valuesSprite_.setCursor(210, 58);
-  valuesSprite_.printf("TGT:%4.2f%s", secondaryTarget.target, secondaryTarget.dirty ? "*" : " ");
+  valuesSprite_.setCursor(198, 58);
+  valuesSprite_.printf("TGT:%5.3f%s", secondaryTarget.target, secondaryTarget.dirty ? "*" : " ");
 
   // 自動調整無効ビルド(DISABLE_AUTO_ADJUST)ではバルブを駆動しないため、バルブ状態は表示しない
 #ifndef DISABLE_AUTO_ADJUST
