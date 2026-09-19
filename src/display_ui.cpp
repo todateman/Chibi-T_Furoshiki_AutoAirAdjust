@@ -112,6 +112,8 @@ void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valv
   valuesSprite_.setCursor(210, 58);
   valuesSprite_.printf("TGT:%4.2f%s", secondaryTarget.target, secondaryTarget.dirty ? "*" : " ");
 
+  // 自動調整無効ビルド(DISABLE_AUTO_ADJUST)ではバルブを駆動しないため、バルブ状態は表示しない
+#ifndef DISABLE_AUTO_ADJUST
   valuesSprite_.setTextSize(3);
   valuesSprite_.setCursor(8, 160);
   if (valveEnergized) {
@@ -121,6 +123,9 @@ void DisplayUI::drawValues(const SensorReadings& r, SystemState state, bool valv
     valuesSprite_.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
     valuesSprite_.print("VALVE: CLOSED");
   }
+#else
+  (void)valveEnergized;
+#endif
 }
 
 // 警告表示

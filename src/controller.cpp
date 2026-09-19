@@ -3,7 +3,9 @@
 
 // 特性測定ビルド(CHARACTERIZE_MODE)では、目標帯下限を下回っても自動でパルスを出さない。
 // パルスはtestPulse()で指令したものだけになる(パルス幅ごとの特性を切り分けて測るため)。
-#ifdef CHARACTERIZE_MODE
+// 自動調整無効ビルド(DISABLE_AUTO_ADJUST)でも自動パルスを出さない。
+// こちらはセンシング・表示・安全監視のみを行うビルドで、2次エア圧力調整用のソレノイドバルブは駆動しない。
+#if defined(CHARACTERIZE_MODE) || defined(DISABLE_AUTO_ADJUST)
 constexpr bool kAutoPulseEnabled = false;
 #else
 constexpr bool kAutoPulseEnabled = true;

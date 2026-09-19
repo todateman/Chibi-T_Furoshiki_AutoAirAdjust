@@ -205,6 +205,13 @@ pio device monitor -b 115200        # シリアルモニタ
 pio run -e m5stack-core2-characterize -t upload  # 特性測定専用ビルドの書き込み
 ```
 
+ソレノイドバルブによる自動調整を無効化し、センシング（圧力読み取り・表示・BLE出力・フォルト監視）のみ行うビルド（`-DDISABLE_AUTO_ADJUST`）もあります。  
+2次エア圧力調整用のソレノイドバルブは駆動しません。起動時に `[BOOT] DISABLE_AUTO_ADJUST build: ...` がログ出力されます。
+
+```sh
+pio run -e m5stack-core2-sensing-only -t upload  # センシング専用ビルドの書き込み
+```
+
 ## 動作確認
 
 1. `pio run -e m5stack-core2` でビルドが通ることを確認。

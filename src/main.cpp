@@ -180,6 +180,9 @@ void setup() {
   }
 
   Serial.println("[BOOT] Chibi-T_Furoshiki_AutoAirAdjust starting...");
+#ifdef DISABLE_AUTO_ADJUST
+  Serial.println("[BOOT] DISABLE_AUTO_ADJUST build: solenoid auto-adjust OFF (sensing only)");
+#endif
 
   bool sensorsOk = sensors.begin();
   Serial.printf("[BOOT] PressureSensors.begin() -> %s\n",
